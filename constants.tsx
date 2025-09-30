@@ -40,6 +40,12 @@ export const NAV_LINKS: NavLink[] = [
     icon: <i data-lucide="contact" className="w-5 h-5"></i>,
     roles: ['admin', 'superAdmin']
   },
+  {
+    href: '/tournament',
+    label: 'Torneos',
+    icon: <i data-lucide="award" className="w-5 h-5"></i>,
+    roles: ['admin', 'superAdmin']
+  },
   
   {
     href: '/superadmin',
