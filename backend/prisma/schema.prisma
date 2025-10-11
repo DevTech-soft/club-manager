@@ -17,6 +17,11 @@ enum MainCategory {
   Mixto
 }
 
+enum TournamentType {
+  QUICK     
+  STANDARD  
+} 
+
 enum SubCategory {
   Basico
   Intermedio
@@ -88,17 +93,68 @@ model Team {
   name               String      @unique
   mainCategory       MainCategory
   subCategory        SubCategory
-  tournament         String?
+  tournament         String?     // opcional: campo antiguo, útil para mostrar texto o compatibilidad
   tournamentPosition String?
 
   players Player[]
-  
+
   coach    Coach?  @relation(fields: [coachId], references: [id], onDelete: SetNull)
   coachId  String?
+
+  // Relación muchos a muchos (a través de TournamentTeam)
+  tournamentEntries TournamentTeam[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Tournament {
+  id                   String    @id @default(cuid())
+  name                 String
+  category             String
+  purpose              String
+  startDate            DateTime
+  endDate              DateTime
+  location             String
+  maxParticipants      Int
+  registrationDeadline DateTime
+  entryFee             Float
+  description          String    @db.Text
+  rules                String    @db.Text
+  prizes               String    @db.Text
+  organizerContact     String
+  type                 TournamentType @default(STANDARD)
+
+  // Para torneos rápidos (solo nombres)
+  quickTeamNames       String[]
+
+  // Para torneos normales (equipos reales o externos)
+  registeredTeams      TournamentTeam[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TournamentTeam {
+  id           String     @id @default(cuid())
+  teamName     String
+  externalClub String?
+  isExternal   Boolean    @default(false)
+
+  // Relación hacia Team (opcional)
+  team         Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamId       String?
+
+  // Relación hacia Tournament (obligatoria)
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournamentId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+
 
 model Attendance {
   playerId String

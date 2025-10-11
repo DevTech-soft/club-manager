@@ -1,5 +1,5 @@
 
-import { Player, Team,  Attendance, ClubSettings, PlayerCreationData, Coach, CoachCreationData } from '../types';
+import { Player, Team,  Attendance, ClubSettings, PlayerCreationData, Coach, CoachCreationData, Tournament, TournamentCreationData } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -135,5 +135,40 @@ export const api = {
         body: JSON.stringify(coachData),
     });
     return handleResponse(response);
-  }
+  },
+
+  createTournament: async (tournamentData: TournamentCreationData): Promise<Tournament> => {
+    const response = await fetch(`${API_BASE_URL}/tournaments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(tournamentData),
+    });
+
+    return handleResponse(response);
+  },
+
+  getTournaments: (): Promise<Tournament[]> => {
+    return fetch(`${API_BASE_URL}/tournaments`).then(handleResponse);
+  },
+
+  getTournamentById: (id: string): Promise<Tournament | undefined> => {
+    return fetch(`${API_BASE_URL}/tournaments/${id}`).then(handleResponse);
+  },
+
+  updateTournament: async (tournamentData: Tournament): Promise<Tournament> => {
+    const response = await fetch(`${API_BASE_URL}/tournaments/${tournamentData.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(tournamentData),
+    });
+    return handleResponse(response);
+  },
+
+  deleteTournament: async (tournamentId: string): Promise<{ success: boolean }> => {
+    const response = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}`, {
+      method: "DELETE",
+    });
+    return handleResponse(response);
+  },
+
 };

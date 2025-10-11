@@ -10,6 +10,11 @@ export enum SubCategory {
   Avanzado = 'Avanzado',
 }
 
+export enum TournamentType {
+  quick = 'QUICK',
+  standard = 'STANDARD',
+}
+
 export enum Position {
   Setter = 'Colocador',
   Libero = 'Líbero',
@@ -17,6 +22,7 @@ export enum Position {
   OutsideHitter = 'Punta Receptor',
   OppositeHitter = 'Opuesto',
 }
+
 
 export interface PlayerStats {
   attack: number;
@@ -26,14 +32,14 @@ export interface PlayerStats {
 }
 
 export interface StatsRecord {
-    id: string;
-    date: string; // ISO string
-    stats: PlayerStats;
+  id: string;
+  date: string; // ISO string
+  stats: PlayerStats;
 }
 
 export interface Player {
   id: string;
-  name:string;
+  name: string;
   document: string;
   address: string;
   phone: string;
@@ -50,6 +56,7 @@ export interface Player {
 export type PlayerCreationData = Omit<Player, 'id' | 'joinDate' | 'statsHistory'> & {
   statsHistory: Omit<StatsRecord, 'id'>[];
 };
+export type TournamentCreationData = Omit<Tournament, 'id'>;
 
 export interface Coach {
   id: string;
@@ -76,10 +83,39 @@ export interface Team {
   };
 }
 
+export interface TournamentTeam {
+  id: string;
+  isExternal: boolean;
+  externalClub?: string;
+  // points?: number;
+  team?: Team;
+}
+
+
+export interface Tournament {
+  id: string;
+  name: string;
+  category: string;
+  purpose: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  maxParticipants: number;
+  registrationDeadline: string;
+  entryFee: number;
+  description: string;
+  rules: string;
+  prizes: string;
+  organizerContact: string;
+  type?: TournamentType;
+  quickTeamNames?: string[];
+  registeredTeams?: TournamentTeam[];
+}
+
 export interface Attendance {
-    playerId: string;
-    date: string; // YYYY-MM-DD
-    status: 'Presente' | 'Ausente';
+  playerId: string;
+  date: string; // YYYY-MM-DD
+  status: 'Presente' | 'Ausente';
 }
 
 export interface ClubSettings {

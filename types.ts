@@ -10,6 +10,11 @@ export enum SubCategory {
   Avanzado = 'Avanzado',
 }
 
+export enum TournamentType {
+  quick = 'QUICK',
+  standard = 'STANDARD',
+}
+
 export enum Position {
   Setter = 'Colocador',
   Libero = 'Líbero',
@@ -51,6 +56,8 @@ export type PlayerCreationData = Omit<Player, 'id' | 'joinDate' | 'statsHistory'
   statsHistory: Omit<StatsRecord, 'id'>[];
 };
 
+export type TournamentCreationData = Omit<Tournament, 'id' >;
+
 export interface Coach {
   id: string;
   firstName: string;
@@ -61,6 +68,13 @@ export interface Coach {
 
 export type CoachCreationData = Omit<Coach, 'id'>;
 
+
+export interface TournamentTeam {
+  id: string;
+  isExternal: boolean;
+  externalClub?: string;
+  team?: Team;
+}
 
 export interface Team {
   id: string;
@@ -75,6 +89,26 @@ export interface Team {
     firstName: string;
     lastName: string;
   };
+}
+
+export interface Tournament {
+  id: string;
+  name: string;
+  category: string;
+  purpose: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  maxParticipants: number;
+  registrationDeadline: string;
+  entryFee: number;
+  description: string;
+  rules: string;
+  prizes: string;
+  organizerContact: string;
+  type?: TournamentType;
+  quickTeamNames?: string[];
+  registeredTeams?: TournamentTeam[];
 }
 
 

@@ -3,7 +3,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { prisma } from './lib/prisma';
-import type { Player, Team, Attendance, ClubSettings, PlayerCreationData, CoachCreationData } from './types';
+import type { Player, Team, Attendance, ClubSettings, PlayerCreationData, CoachCreationData, TournamentCreationData } from './types';
 import { Prisma } from '@prisma/client';
 
 
@@ -71,6 +71,21 @@ const mapTeamForFrontend = (team: any) => {
     };
 };
 
+const MapTournamentTeamsForFrontend = (tournamentTeam: any) => {
+  if (!tournamentTeam) return tournamentTeam;
+
+  const { team, ...teamEntryData } = tournamentTeam;
+  const players = team?.players || [];
+
+  return {
+    ...teamEntryData,
+    ...team,
+    playerIds: players.map((p: { id: string }) => p.id),
+    subCategory: subCategoryFromPrisma[team?.subCategory] || team?.subCategory,
+  };
+};
+
+
 
 // Root endpoint
 app.get('/api', (req: Request, res: Response) => {
@@ -79,7 +94,7 @@ app.get('/api', (req: Request, res: Response) => {
 
 // AUTH
 app.post('/api/auth/login', async (req: Request, res: Response) => {
-     try {
+    try {
         const { user, pass } = req.body;
         if (user === 'admin' && pass === 'password') {
             return res.json({ success: true, userType: 'admin' });
@@ -98,7 +113,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
         }
 
         return res.status(401).json({ success: false, userType: null, message: 'Invalid credentials' });
-    } catch(error) {
+    } catch (error) {
         console.error(error);
         return res.status(500).json({ success: false, userType: null, message: 'Internal server error' });
     }
@@ -283,13 +298,13 @@ app.post('/api/teams', async (req: Request, res: Response, next: NextFunction) =
                 },
                 coach: coachId ? { connect: { id: coachId } } : undefined,
             },
-            include: { 
+            include: {
                 players: { select: { id: true } },
                 coach: { select: { firstName: true, lastName: true } }
             }
         });
         res.status(201).json(mapTeamForFrontend(newTeam));
-    } catch(error) {
+    } catch (error) {
         next(error);
     }
 });
@@ -427,6 +442,120 @@ app.post('/api/coaches', async (req: Request, res: Response, next: NextFunction)
         next(error);
     }
 });
+
+// TOURNAMENTS
+app.get('/api/tournaments', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const tournaments = await prisma.tournament.findMany({
+            include: {
+                registeredTeams: {
+                    include: {
+                        team: {
+                            include: {
+                                players: { select: { id: true } },
+                                coach: { select: { firstName: true, lastName: true } }
+                            }
+                        }
+
+                    }
+                }
+            },
+            orderBy: { startDate: "desc" }
+        });
+
+        const formattedTournaments = tournaments.map(t => ({
+            ...t,
+            startDate: t.startDate.toISOString().split('T')[0],
+            endDate: t.endDate.toISOString().split('T')[0],
+            registrationDeadline: t.registrationDeadline.toISOString().split('T')[0],
+            registeredTeams: t.registeredTeams?.map(rt => MapTournamentTeamsForFrontend(rt)) || [],
+        }));
+        res.json(formattedTournaments);
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post("/api/tournaments", async (req, res, next) => {
+    try {
+        const { id, type, quickTeamNames, registeredTeams, ...data } = req.body;
+
+        // Si hay equipos registrados, obtener sus nombres primero
+        let teamRegistrations = undefined;
+        if (type === "STANDARD" && registeredTeams && registeredTeams.length > 0) {
+            const teams = await prisma.tournamentTeam.findMany({
+                where: { id: { in: registeredTeams } }
+            });
+
+            teamRegistrations = {
+                create: registeredTeams.map((teamId: string) => {
+                    const team = teams.find(t => t.id === teamId);
+                    return {
+                        teamName: team?.teamName || "Equipo desconocido",
+                        isExternal: false,
+                        externalClub: team?.externalClub || "Sin club",
+                        team: { connect: { id: teamId } }
+                    };
+                })
+            };
+        }
+
+        const tournament = await prisma.tournament.create({
+            data: {
+                ...data,
+                startDate: new Date(data.startDate),
+                endDate: new Date(data.endDate),
+                registrationDeadline: new Date(data.registrationDeadline),
+                type,
+                quickTeamNames: quickTeamNames || [],
+                registeredTeams: teamRegistrations
+            },
+            include: {
+                registeredTeams: {
+                    include: {
+                        team: {
+                            include: {
+                                players: { select: { id: true } },
+                                coach: { select: { firstName: true, lastName: true } },
+                                tournamentEntries: { select: { id: true } }
+                            }
+                        },
+                        // tournament: { select: { id: true } }
+                    }
+                }
+            }
+        });
+        console.log("Torneo creado:", tournament);
+        res.status(201).json(tournament);
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/tournaments/:id", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const tournament = await prisma.tournament.findUnique({
+            where: { id },
+            include: {
+                registeredTeams: {
+                    include: {
+                        team: {
+                            include: {
+                                players: { select: { id: true } },
+                                coach: { select: { firstName: true, lastName: true } }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        res.json(tournament);
+    } catch (error) {
+        next(error);
+    }
+});
+
 
 
 // CLUB SETTINGS

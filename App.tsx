@@ -15,6 +15,7 @@ import { useClub } from './context/ClubContext';
 import AdminRoute from './components/shared/adminRoute';
 import Coaches from './components/pages/coaches';
 import Tournaments from './components/pages/Tournaments';
+import TournamentDetails from './components/pages/tournaments/TournamentDetails';
 
 
 function hexToRgb(hex: string): string | null {
@@ -85,6 +86,8 @@ const App: React.FC = () => {
               <Tournaments />
             </AdminRoute>
           } />
+          <Route path="tournament/:id" element={<TournamentDetails />}/>
+          
           <Route path="superadmin" element={
             <SuperAdminRoute>
               <SuperAdmin />
