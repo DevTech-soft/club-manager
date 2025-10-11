@@ -1,20 +1,19 @@
 // src/pages/TournamentDetails.tsx
 import Button from "@/components/ui/Button";
+import ModalDialog from "@/components/ui/Dialog";
 import { useData } from "@/context/DataContext";
-import { TournamentType } from "@/types";
-import { Calendar, Users, MapPin, Trophy, Clock, ChevronDown, Phone } from "lucide-react";
+import { Match, TournamentGroup, TournamentType } from "@/types";
+import {
+  Calendar,
+  Users,
+  MapPin,
+  Trophy,
+  Clock,
+  ChevronDown,
+  Phone,
+} from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-
-// import {
-//   Accordion,
-//   AccordionItem,
-//   AccordionTrigger,
-//   AccordionContent,
-// } from "@/components/ui/accordion";
-// import Button from "../ui/Button";
-
-
 
 const AccordionSection: React.FC<{
   title: string;
@@ -53,16 +52,27 @@ const AccordionSection: React.FC<{
 
 const TournamentDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { getTournamentById } = useData();
+  const {
+    getTournamentById,
+    generateGroupsAndMatches,
+    getMatchesByTournamentId,
+  } = useData();
   const [tournament, setTournament] = useState<any>(null);
+  const [matches, setMatches] = useState<any>(null);
   const [loading, setLoading] = useState(true);
- 
+  const [openDialog, setOpenDialog] = useState(false);
+ const [openGroup, setOpenGroup] = useState<number | null>(null);
 
-   useEffect(() => {
+const handleAccordionToggle = (groupIndex: number) => {
+  setOpenGroup(prev => (prev === groupIndex ? null : groupIndex));
+};
+
+  useEffect(() => {
     const fetchTournament = async () => {
       try {
         if (!id) return;
         const data = await getTournamentById(id);
+
         setTournament(data);
       } catch (error) {
         console.error("Error fetching tournament:", error);
@@ -74,6 +84,20 @@ const TournamentDetails: React.FC = () => {
     fetchTournament();
   }, [id, getTournamentById]);
 
+  useEffect(() => {
+    const fetchMatches = async () => {
+      try {
+        if (!id) return;
+        const data = await getMatchesByTournamentId(id);
+        setMatches(data);
+      } catch (error) {
+        console.error("Error fetching matches:", error);
+      }
+    };
+
+    fetchMatches();
+  }, [id, getMatchesByTournamentId]);
+
   if (loading) return <p className="p-6">Cargando detalles...</p>;
   if (!tournament) return <p className="p-6">Torneo no encontrado.</p>;
 
@@ -82,7 +106,9 @@ const TournamentDetails: React.FC = () => {
       {/* Encabezado */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-primary mb-1">{tournament.name}</h1>
+          <h1 className="text-3xl font-bold text-primary mb-1">
+            {tournament.name}
+          </h1>
           <p className="text-sm text-text-secondary">{tournament.category}</p>
         </div>
         <Link to="/tournaments">
@@ -118,12 +144,17 @@ const TournamentDetails: React.FC = () => {
             <Users className="w-5 h-5 text-primary" />
             <span>
               <strong className="text-text-secondary">Equipos:</strong>{" "}
-              {tournament.registeredTeams?.length || 0} / {tournament.maxParticipants}
+              {tournament.registeredTeams?.length || 0} /{" "}
+              {tournament.maxParticipants}
             </span>
           </div>
           <div>
             <strong className="text-text-secondary">Tipo:</strong>{" "}
-            <span className="capitalize">{tournament.type == TournamentType.standard ? "Competitivo" : "Entrenamiento"}</span>
+            <span className="capitalize">
+              {tournament.type == TournamentType.standard
+                ? "Competitivo"
+                : "Entrenamiento"}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Phone className="w-5 h-5 text-primary" />
@@ -134,7 +165,9 @@ const TournamentDetails: React.FC = () => {
 
         {/* Descripción */}
         <div className="mt-6">
-          <h2 className="text-xl font-semibold text-primary mb-2">Descripción</h2>
+          <h2 className="text-xl font-semibold text-primary mb-2">
+            Descripción
+          </h2>
           <p className="text-text-secondary leading-relaxed">
             {tournament.description || "Sin descripción disponible."}
           </p>
@@ -161,7 +194,8 @@ const TournamentDetails: React.FC = () => {
                   </h3>
                   {reg.team?.coach && (
                     <p className="text-sm text-text-secondary">
-                      Entrenador: {reg.team.coach.firstName} {reg.team.coach.lastName}
+                      Entrenador: {reg.team.coach.firstName}{" "}
+                      {reg.team.coach.lastName}
                     </p>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
@@ -171,7 +205,9 @@ const TournamentDetails: React.FC = () => {
               ))}
             </div>
           ) : (
-            <p className="text-text-secondary">No hay equipos registrados aún.</p>
+            <p className="text-text-secondary">
+              No hay equipos registrados aún.
+            </p>
           )}
         </AccordionSection>
 
@@ -195,20 +231,27 @@ const TournamentDetails: React.FC = () => {
               </thead>
               <tbody>
                 {tournament.positions.map((pos: any, index: number) => (
-                  <tr key={index} className="border-b border-gray-800 hover:bg-gray-700/30">
+                  <tr
+                    key={index}
+                    className="border-b border-gray-800 hover:bg-gray-700/30"
+                  >
                     <td className="py-2">{index + 1}</td>
                     <td className="py-2">{pos.teamName}</td>
                     <td className="py-2 text-center">{pos.played}</td>
                     <td className="py-2 text-center">{pos.wins}</td>
                     <td className="py-2 text-center">{pos.draws}</td>
                     <td className="py-2 text-center">{pos.losses}</td>
-                    <td className="py-2 text-center font-bold text-primary">{pos.points}</td>
+                    <td className="py-2 text-center font-bold text-primary">
+                      {pos.points}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <p className="text-text-secondary">No hay posiciones registradas.</p>
+            <p className="text-text-secondary">
+              No hay posiciones registradas.
+            </p>
           )}
         </AccordionSection>
 
@@ -217,27 +260,132 @@ const TournamentDetails: React.FC = () => {
           title="Fechas y Encuentros"
           icon={<Clock className="w-5 h-5 text-primary" />}
         >
-          {tournament.matches?.length ? (
+          {tournament.groups?.length ? (
             <ul className="space-y-2">
-              {tournament.matches.map((m: any, i: number) => (
-                <li
-                  key={i}
-                  className="flex justify-between items-center bg-gray-700/40 p-3 rounded-md border border-gray-600"
-                >
-                  <span>
-                    <strong>{m.teamA}</strong> vs <strong>{m.teamB}</strong>
-                  </span>
-                  <span className="text-sm text-text-secondary">
-                    {new Date(m.date).toLocaleDateString()} — {m.time}
-                  </span>
-                </li>
-              ))}
+              {tournament.groups.map((g: TournamentGroup, i: number) => {
+               
+                return (
+                  <li
+                    key={i}
+                    className="bg-gray-700/40 p-3 rounded-md border border-gray-600"
+                  >
+                    {/* Encabezado del grupo */}
+                    <button
+                      onClick={() => handleAccordionToggle(i)}
+                      className="w-full flex justify-between items-center text-left"
+                    >
+                      <span className="font-semibold text-lg text-white">
+                        {g.name}
+                      </span>
+                      <span className="text-sm text-text-secondary">
+                        {g.matches.length} encuentro
+                        {g.matches.length !== 1 && "s"}
+                      </span>
+                    </button>
+
+                    {/* Lista de encuentros del grupo */}
+                    {openGroup === i && (
+                      <ul className="mt-3 space-y-2 pl-4 border-l border-gray-600">
+                        {g.matches.map((m: Match, j: number) => {
+                          const teamA = tournament.registeredTeams?.find(
+                            (t: any) => t.id === m.teamAId
+                          );
+                          const teamB = tournament.registeredTeams?.find(
+                            (t: any) => t.id === m.teamBId
+                          );
+                          return (
+                            <li
+                              key={j}
+                              className="flex justify-between items-center bg-gray-800/50 p-3 rounded-md border border-gray-700"
+                            >
+                              <span>
+                                <strong>
+                                  {teamA?.team?.name ||
+                                    teamA?.teamName ||
+                                    "Equipo A"}
+                                </strong>{" "}
+                                vs{" "}
+                                <strong>
+                                  {teamB?.team?.name ||
+                                    teamB?.teamName ||
+                                    "Equipo B"}
+                                </strong>
+                              </span>
+                              <span className="text-sm text-text-secondary">
+                                {m.date
+                                  ? new Date(m.date).toLocaleDateString()
+                                  : "Sin fecha"}{" "}
+                                —{" "}
+                                {m.date
+                                  ? new Date(m.date).toLocaleTimeString()
+                                  : "Sin hora"}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
-            <p className="text-text-secondary">No hay encuentros programados.</p>
+            <div className="flex flex-col items-center gap-3 text-center">
+              <p className="text-text-secondary">
+                No hay encuentros programados.
+              </p>
+
+              {/* Botón Generar Sorteo */}
+              <Button
+                variant="primary"
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const firstMatches = generateGroupsAndMatches(
+                      tournament.id,
+                      2
+                    );
+                    console.log(firstMatches);
+                    setMatches(firstMatches);
+                    // Refresca el torneo para mostrar los nuevos matches
+                    const updated = await getTournamentById(tournament.id);
+                    setTournament(updated);
+                    setOpenDialog(true);
+                    console.log(updated);
+                  } catch (err: any) {
+                    console.error(err);
+                    alert(
+                      "❌ No se pudo generar el sorteo. Revisa los equipos o el servidor."
+                    );
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+              >
+                {loading ? "Generando..." : "Generar sorteo"}
+              </Button>
+            </div>
           )}
         </AccordionSection>
       </div>
+      {openDialog && (
+        <ModalDialog
+          isOpen={openDialog}
+          onClose={() => setOpenDialog(false)}
+          title="Se han creado encuentros"
+          variant="info"
+          showCloseIcon={false}
+          confirmText="Aceptar"
+          cancelText="Cancelar"
+          onConfirm={async () => {
+            setOpenDialog(false);
+          }}
+          showCancel={false}
+        >
+          <p>¿Estás seguro de eliminar el torneo?</p>
+        </ModalDialog>
+      )}
     </div>
   );
 };

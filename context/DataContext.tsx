@@ -15,6 +15,7 @@ import {
   CoachCreationData,
   Tournament,
   TournamentCreationData,
+  Match,
 } from "../types";
 import { api } from "../services/api";
 
@@ -36,11 +37,15 @@ interface DataContextType {
   recordPlayerPayment: (playerId: string) => Promise<void>;
   deletePlayer: (playerId: string) => Promise<void>;
   refetchData: () => void;
-  createTournament: (tournamentData: Omit<Tournament, "id"> ) => Promise<Tournament>;
+  createTournament: (
+    tournamentData: Omit<Tournament, "id">
+  ) => Promise<Tournament>;
   updateTournament: (tournamentData: Tournament) => Promise<void>;
   deleteTournament: (tournamentId: string) => Promise<void>;
   getTournamentById: (tournamentId: string) => Promise<Tournament | undefined>;
-
+  generateMatches: (tournamentId: string) => Promise<void>;
+  getMatchesByTournamentId: (tournamentId: string) => Promise<Match[]>;
+  generateGroupsAndMatches: (tournamentId: string, groupsCount: number) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -59,14 +64,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     // For background fetches, we don't want to show a loading spinner.
     // The main loading state is only for the initial page load.
     try {
-      const [playersData, teamsData, attendancesData, coachesData, tournamentsData] =
-        await Promise.all([
-          api.getPlayers(),
-          api.getTeams(),
-          api.getAttendances(),
-          api.getCoaches(),
-          api.getTournaments(),
-        ]);
+      const [
+        playersData,
+        teamsData,
+        attendancesData,
+        coachesData,
+        tournamentsData,
+      ] = await Promise.all([
+        api.getPlayers(),
+        api.getTeams(),
+        api.getAttendances(),
+        api.getCoaches(),
+        api.getTournaments(),
+      ]);
       setPlayers(playersData);
       setTeams(teamsData);
       setAttendances(attendancesData);
@@ -174,11 +184,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     await fetchData(); // Refetch to remove the tournament from the state.
   };
 
-
+  const generateMatches = async (tournamentId: string) => {
+    await api.createMatch({ tournamentId });
+    await fetchData(); // Refetch to get the canonical state.
+  };
 
   const deletePlayer = async (playerId: string) => {
     await api.deletePlayer(playerId);
     await fetchData(); // Refetch to remove the player from the state.
+  };
+
+  const getMatchesByTournamentId = async (tournamentId: string) => {
+    const matches = await api.getMatchesByTournamentId(tournamentId);
+    await fetchData();
+    return matches;
+  };
+
+  const generateGroupsAndMatches = async (tournamentId: string, groupsCount: number) => {
+    await api.generateGroupsAndMatches(tournamentId, groupsCount);
+    await fetchData(); // Refetch to get the canonical state.
   };
 
   // Initial data fetch on component mount.
@@ -226,8 +250,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         createTournament,
         updateTournament,
         deleteTournament,
-        getTournamentById
-        
+        getTournamentById,
+        generateMatches,
+        getMatchesByTournamentId,
+        generateGroupsAndMatches,
       }}
     >
       {children}

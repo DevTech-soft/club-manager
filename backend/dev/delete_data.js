@@ -8,7 +8,9 @@ async function main() {
     // await prisma.team.deleteMany({});
     // await prisma.attendance.deleteMany({});
     // await prisma.coach.deleteMany({});
-    await prisma.tournament.deleteMany({});
+    // await prisma.tournament.deleteMany({});
+    await prisma.match.deleteMany({});
+    await prisma.tournamentGroup.deleteMany({});
     console.log("Data deleted");
 } 
 

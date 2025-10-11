@@ -130,10 +130,23 @@ model Tournament {
 
   // Para torneos normales (equipos reales o externos)
   registeredTeams      TournamentTeam[]
-
+  matches     Match[]
+  groups          TournamentGroup[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+
+model TournamentGroup {
+  id           String          @id @default(cuid())
+  name         String
+  tournamentId String
+  tournament   Tournament      @relation(fields: [tournamentId], references: [id])
+  teams        TournamentTeam[] @relation("GroupTeams")
+  matches      Match[]
+  createdAt    DateTime        @default(now())
+}
+
 
 model TournamentTeam {
   id           String     @id @default(cuid())
@@ -149,8 +162,44 @@ model TournamentTeam {
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   tournamentId String
 
+  groupId       String?         
+  group         TournamentGroup? @relation("GroupTeams", fields: [groupId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+
+
+
+model Match {
+  id             String      @id @default(uuid())
+  tournament     Tournament  @relation(fields: [tournamentId], references: [id])
+  tournamentId   String
+  groupId        String? 
+  group          TournamentGroup? @relation(fields: [groupId], references: [id])
+  teamAId        String
+  teamBId        String
+
+  sportType      String      @default("volleyball")
+  round          Int?
+  date           DateTime?
+  status         String      @default("pending") // pending | in_progress | finished
+  winnerId       String?
+  notes          String?
+  sets           MatchSet[]
+}
+
+model MatchSet {
+  id             String    @id @default(uuid())
+  match          Match     @relation(fields: [matchId], references: [id])
+  matchId        String
+
+  setNumber      Int
+  teamAPoints    Int
+  teamBPoints    Int
+
+  winnerId       String?   // por si quieres guardar quién ganó el set
 }
 
 

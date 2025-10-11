@@ -72,17 +72,17 @@ const mapTeamForFrontend = (team: any) => {
 };
 
 const MapTournamentTeamsForFrontend = (tournamentTeam: any) => {
-  if (!tournamentTeam) return tournamentTeam;
+    if (!tournamentTeam) return tournamentTeam;
 
-  const { team, ...teamEntryData } = tournamentTeam;
-  const players = team?.players || [];
+    const { team, ...teamEntryData } = tournamentTeam;
+    const players = team?.players || [];
 
-  return {
-    ...teamEntryData,
-    ...team,
-    playerIds: players.map((p: { id: string }) => p.id),
-    subCategory: subCategoryFromPrisma[team?.subCategory] || team?.subCategory,
-  };
+    return {
+        ...teamEntryData,
+        ...team,
+        playerIds: players.map((p: { id: string }) => p.id),
+        subCategory: subCategoryFromPrisma[team?.subCategory] || team?.subCategory,
+    };
 };
 
 
@@ -538,6 +538,7 @@ app.get("/api/tournaments/:id", async (req, res, next) => {
         const tournament = await prisma.tournament.findUnique({
             where: { id },
             include: {
+                groups: { include: { matches: true  } },
                 registeredTeams: {
                     include: {
                         team: {
@@ -555,6 +556,129 @@ app.get("/api/tournaments/:id", async (req, res, next) => {
         next(error);
     }
 });
+
+app.post("/api/matches", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { tournamentId } = req.body;
+        if (!tournamentId) return res.status(400).json({ error: "tournamentId required" });
+
+        const registrations = await prisma.tournamentTeam.findMany({ where: { tournamentId } });
+        if (registrations.length < 2) return res.status(400).json({ error: "At least 2 teams required" });
+
+        const toCreate = [];
+        for (let i = 0; i < registrations.length; i++) {
+            for (let j = i + 1; j < registrations.length; j++) {
+                toCreate.push({
+                    data: {
+                        tournamentId,
+                        teamAId: registrations[i].id,
+                        teamBId: registrations[j].id,
+                        sportType: "volleyball",
+                        status: "pending",
+                    }
+                });
+            }
+        }
+
+        // Ejecutar en transacción para crear y devolver los registros
+        const createdMatches = await prisma.$transaction(
+            toCreate.map((item) => prisma.match.create(item))
+        );
+
+        return res.status(201).json({ created: createdMatches.length, matches: createdMatches });
+    } catch (error) {
+        next(error);
+    }
+});
+
+
+app.post("/api/matches/groups", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tournamentId, groupsCount = 2 } = req.body;
+    if (!tournamentId) return res.status(400).json({ error: "tournamentId required" });
+
+    const teams = await prisma.tournamentTeam.findMany({ where: { tournamentId } });
+    if (teams.length < 2) return res.status(400).json({ error: "At least 2 teams required" });
+    if (groupsCount < 1) return res.status(400).json({ error: "groupsCount must be > 0" });
+
+    // Mezclar equipos aleatoriamente
+    const shuffled = [...teams].sort(() => Math.random() - 0.5);
+
+    // Dividir equipos en grupos
+    const groups: any[] = Array.from({ length: groupsCount }, () => []);
+    shuffled.forEach((team, i) => {
+      groups[i % groupsCount].push(team);
+    });
+
+    const createdGroups = await prisma.$transaction(async (tx) => {
+      const groupRecords = [];
+      const matchRecords = [];
+
+      for (let g = 0; g < groups.length; g++) {
+        const groupName = `Grupo ${String.fromCharCode(65 + g)}`; // A, B, C...
+        const group = await tx.tournamentGroup.create({
+          data: { tournamentId, name: groupName },
+        });
+        groupRecords.push(group);
+
+        // Asignar equipos a este grupo
+        for (const team of groups[g]) {
+          await tx.tournamentTeam.update({
+            where: { id: team.id },
+            data: { groupId: group.id },
+          });
+        }
+
+        // Generar encuentros internos (round robin)
+        for (let i = 0; i < groups[g].length; i++) {
+          for (let j = i + 1; j < groups[g].length; j++) {
+            matchRecords.push({
+              tournamentId,
+              groupId: group.id,
+              teamAId: groups[g][i].id,
+              teamBId: groups[g][j].id,
+              sportType: "volleyball",
+              status: "pending",
+            });
+          }
+        }
+      }
+
+      // Crear todos los matches a la vez
+      await tx.match.createMany({ data: matchRecords, skipDuplicates: true });
+
+      return { groups: groupRecords, matches: matchRecords.length };
+    });
+
+    res.status(201).json({
+      message: `Se generaron ${createdGroups.groups.length} grupos y ${createdGroups.matches} encuentros.`,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+app.get("/api/matches", async (req, res, next) => {
+  try {
+    const { tournamentId } = req.query;
+
+    if (!tournamentId || typeof tournamentId !== "string") {
+      return res.status(400).json({ error: "tournamentId is required" });
+    }
+
+    const matches = await prisma.match.findMany({
+      where: { tournamentId },
+      
+    });
+
+    res.json(matches);
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 
 
 

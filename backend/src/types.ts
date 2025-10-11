@@ -24,6 +24,7 @@ export enum Position {
 }
 
 
+
 export interface PlayerStats {
   attack: number;
   defense: number;
@@ -67,6 +68,12 @@ export interface Coach {
 }
 
 export type CoachCreationData = Omit<Coach, 'id'>;
+export type MatchCreationData = Omit<Match, 'id'>;
+
+export interface GenerateMatchesRequest {
+  tournamentId: string;
+}
+
 
 export interface Team {
   id: string;
@@ -92,6 +99,16 @@ export interface TournamentTeam {
 }
 
 
+export interface TournamentGroup {
+  id: string;
+  tournamentId: string;
+  name: string;
+  matches: Match[];
+  teams: TournamentTeam[];
+  createdAt: string;
+}
+
+
 export interface Tournament {
   id: string;
   name: string;
@@ -110,7 +127,40 @@ export interface Tournament {
   type?: TournamentType;
   quickTeamNames?: string[];
   registeredTeams?: TournamentTeam[];
+  matches?: Match[];
+  groups?: TournamentGroup[];
+  createdAt: string;
+  updatedAt: string;
+
+  
 }
+
+export interface MatchSet {
+  id: string;
+  matchId: string;
+  setNumber: number;
+  teamAPoints: number;
+  teamBPoints: number;
+  winnerId?: string | null;
+}
+
+export interface Match {
+  id: string;
+  tournamentId: string;
+  teamAId: string;
+  teamBId: string;
+
+  sportType: string;     
+  round?: number | null;
+  date?: string | Date | null;
+  status: "pending" | "in_progress" | "finished";
+  winnerId?: string | null;
+  notes?: string | null;
+  metadata?: Record<string, any> | null; 
+  groupId?: string | null;
+  sets?: MatchSet[]; 
+}
+
 
 export interface Attendance {
   playerId: string;

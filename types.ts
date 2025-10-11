@@ -68,12 +68,23 @@ export interface Coach {
 
 export type CoachCreationData = Omit<Coach, 'id'>;
 
+export type MatchCreationData = Omit<Match, 'id'>;
+
+
+
+
+export interface GenerateMatchesRequest {
+  tournamentId: string;
+}
+
+
 
 export interface TournamentTeam {
   id: string;
   isExternal: boolean;
   externalClub?: string;
   team?: Team;
+  groupId?: string;
 }
 
 export interface Team {
@@ -90,6 +101,8 @@ export interface Team {
     lastName: string;
   };
 }
+
+
 
 export interface Tournament {
   id: string;
@@ -109,6 +122,49 @@ export interface Tournament {
   type?: TournamentType;
   quickTeamNames?: string[];
   registeredTeams?: TournamentTeam[];
+  matches?: Match[];
+  groups?: TournamentGroup[];
+  createdAt: string;
+  updatedAt: string;
+
+}
+
+export interface TournamentGroup {
+  id: string;
+  tournamentId: string;
+  name: string;
+  matches: Match[];
+  teams: TournamentTeam[];
+  createdAt: string;
+}
+
+
+
+
+export interface MatchSet {
+  id: string;
+  matchId: string;
+  setNumber: number;
+  teamAPoints: number;
+  teamBPoints: number;
+  winnerId?: string | null;
+}
+
+export interface Match {
+  id: string;
+  tournamentId: string;
+  teamAId: string;
+  teamBId: string;
+
+  sportType: string;     
+  round?: number | null;
+  date?: string | Date | null;
+  status: "pending" | "in_progress" | "finished";
+  winnerId?: string | null;
+  notes?: string | null;
+  metadata?: Record<string, any> | null; 
+  groupId?: string | null;
+  sets?: MatchSet[]; 
 }
 
 

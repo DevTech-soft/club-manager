@@ -1,5 +1,5 @@
 
-import { Player, Team,  Attendance, ClubSettings, PlayerCreationData, Coach, CoachCreationData, Tournament, TournamentCreationData } from '../types';
+import { Player, Team,  Attendance, ClubSettings, PlayerCreationData, Coach, CoachCreationData, Tournament, TournamentCreationData, Match, MatchCreationData, GenerateMatchesRequest } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -170,5 +170,28 @@ export const api = {
     });
     return handleResponse(response);
   },
+
+  createMatch: async (data: { tournamentId: string }): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/matches`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return handleResponse(response);
+},
+
+getMatchesByTournamentId: (tournamentId: string): Promise<Match[]> => {
+  return fetch(`${API_BASE_URL}/matches?tournamentId=${tournamentId}`).then(handleResponse);
+},
+
+generateGroupsAndMatches : async (tournamentId: string, groupsCount: number): Promise<void>  => {
+ const response = await fetch(`${API_BASE_URL}/matches/groups`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tournamentId, groupsCount }),
+  });
+  return handleResponse(response); 
+}
+
 
 };
