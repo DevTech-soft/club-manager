@@ -3,6 +3,7 @@ import Button from "@/components/ui/Button";
 import ModalDialog from "@/components/ui/Dialog";
 import { useData } from "@/context/DataContext";
 import { Match, TournamentGroup, TournamentType } from "@/types";
+
 import {
   Calendar,
   Users,
@@ -55,17 +56,62 @@ const TournamentDetails: React.FC = () => {
   const {
     getTournamentById,
     generateGroupsAndMatches,
-    getMatchesByTournamentId,
+    getGroupsByTournamentId,
+    getMatchesByGroupId,
+    updateMatch,
+    createSet,
   } = useData();
   const [tournament, setTournament] = useState<any>(null);
-  const [matches, setMatches] = useState<any>(null);
+  const [matchesByGroup, setMatches] = useState<any>(null);
+  const [groups, setGroups] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
- const [openGroup, setOpenGroup] = useState<number | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [dialogMessage, setDialogMessage] = useState("");
+  const [editedDates, setEditedDates] = useState<{ [matchId: string]: string }>(
+    {}
+  );
+  const [editingDates, setEditingDates] = useState<{
+    [matchId: string]: boolean;
+  }>({});
 
-const handleAccordionToggle = (groupIndex: number) => {
-  setOpenGroup(prev => (prev === groupIndex ? null : groupIndex));
-};
+  const handleAccordionToggle = async (groupId: string) => {
+    setOpenGroup((prev) => (prev === groupId ? null : groupId));
+    try {
+      const matches = await getMatchesByGroupId(groupId);
+      setMatches((prev: any) => ({ ...prev, [groupId]: matches }));
+      console.log("Matches for group", groupId, matches);
+    } catch (err) {
+      console.error("Error fetching matches for group:", err);
+    }
+  };
+
+  // Guardar en DB (simulado — tú harás el fetch real)
+  const handleSaveMatchDate = async (match: Match) => {
+    try {
+      const updatedMatch = await updateMatch(match);
+      const groupId = updatedMatch.groupId!;
+
+      setMatches((prevMatches: any) => {
+        const groupId = updatedMatch.groupId!;
+        const groupMatches = prevMatches[groupId] ?? [];
+
+        const updatedGroupMatches = groupMatches.map((m: any) =>
+          m.id === updatedMatch.id ? updatedMatch : m
+        );
+
+        return { ...prevMatches, [groupId]: updatedGroupMatches };
+      });
+
+      setDialogMessage(`Fecha guardada para el encuentro.`);
+      setOpenDialog(true);
+    } catch (error) {
+      console.error("Error al guardar fecha:", error);
+      setDialogMessage("❌ No se pudo guardar la fecha del encuentro.");
+      setOpenDialog(true);
+    }
+  };
 
   useEffect(() => {
     const fetchTournament = async () => {
@@ -85,18 +131,43 @@ const handleAccordionToggle = (groupIndex: number) => {
   }, [id, getTournamentById]);
 
   useEffect(() => {
-    const fetchMatches = async () => {
+    const fetchGroups = async () => {
       try {
         if (!id) return;
-        const data = await getMatchesByTournamentId(id);
-        setMatches(data);
+        const data = await getGroupsByTournamentId(id);
+        setGroups(data);
       } catch (error) {
-        console.error("Error fetching matches:", error);
+        console.error("Error fetching groups:", error);
       }
     };
 
-    fetchMatches();
-  }, [id, getMatchesByTournamentId]);
+    fetchGroups();
+  }, [id, getGroupsByTournamentId]);
+
+  const handleStartMatch = async (match: Match) => {
+    try {
+       const updatedMatch = await updateMatch({ ...match, status: "in_progress" });
+        await createSet(updatedMatch.id);
+      setMatches((prevMatches: any) => {
+        const groupId = updatedMatch.groupId!;
+        const groupMatches = prevMatches[groupId] ?? [];
+
+        const updatedGroupMatches = groupMatches.map((m: any) =>
+          m.id === updatedMatch.id ? updatedMatch : m
+        );
+
+        return { ...prevMatches, [groupId]: updatedGroupMatches };
+      });
+
+      setDialogMessage("Deseas ir a los detalles del encuentro?");
+      setOpenDialog(true);
+      setShowCancelDialog(true);
+    } catch (error) {
+      console.error("Error al iniciar el encuentro:", error);
+      setDialogMessage("❌ No se pudo iniciar el encuentro.");
+      setOpenDialog(true);
+    }
+  };
 
   if (loading) return <p className="p-6">Cargando detalles...</p>;
   if (!tournament) return <p className="p-6">Torneo no encontrado.</p>;
@@ -260,74 +331,367 @@ const handleAccordionToggle = (groupIndex: number) => {
           title="Fechas y Encuentros"
           icon={<Clock className="w-5 h-5 text-primary" />}
         >
-          {tournament.groups?.length ? (
+          {groups?.length ? (
             <ul className="space-y-2">
-              {tournament.groups.map((g: TournamentGroup, i: number) => {
-               
-                return (
+              <ul className="space-y-2">
+                {groups.map((g: any) => (
                   <li
-                    key={i}
+                    key={g.id}
                     className="bg-gray-700/40 p-3 rounded-md border border-gray-600"
                   >
                     {/* Encabezado del grupo */}
                     <button
-                      onClick={() => handleAccordionToggle(i)}
+                      onClick={() => handleAccordionToggle(g.id)}
                       className="w-full flex justify-between items-center text-left"
                     >
                       <span className="font-semibold text-lg text-white">
                         {g.name}
                       </span>
-                      <span className="text-sm text-text-secondary">
-                        {g.matches.length} encuentro
-                        {g.matches.length !== 1 && "s"}
-                      </span>
+                      {/* <span className="text-sm text-text-secondary">
+                        {g.matches ?? matchesByGroup[g.id]?.length ?? 0}{" "}
+                        encuentro
+                        {(g.matches ?? matchesByGroup[g.id]?.length ?? 0) !==
+                          1 && "s"}
+                      </span> */}
                     </button>
 
-                    {/* Lista de encuentros del grupo */}
-                    {openGroup === i && (
+                    {/* Matches del grupo */}
+                    {openGroup === g.id && (
                       <ul className="mt-3 space-y-2 pl-4 border-l border-gray-600">
-                        {g.matches.map((m: Match, j: number) => {
-                          const teamA = tournament.registeredTeams?.find(
-                            (t: any) => t.id === m.teamAId
-                          );
-                          const teamB = tournament.registeredTeams?.find(
-                            (t: any) => t.id === m.teamBId
-                          );
-                          return (
-                            <li
-                              key={j}
-                              className="flex justify-between items-center bg-gray-800/50 p-3 rounded-md border border-gray-700"
-                            >
-                              <span>
-                                <strong>
-                                  {teamA?.team?.name ||
-                                    teamA?.teamName ||
-                                    "Equipo A"}
-                                </strong>{" "}
-                                vs{" "}
-                                <strong>
-                                  {teamB?.team?.name ||
-                                    teamB?.teamName ||
-                                    "Equipo B"}
-                                </strong>
-                              </span>
-                              <span className="text-sm text-text-secondary">
-                                {m.date
-                                  ? new Date(m.date).toLocaleDateString()
-                                  : "Sin fecha"}{" "}
-                                —{" "}
-                                {m.date
-                                  ? new Date(m.date).toLocaleTimeString()
-                                  : "Sin hora"}
-                              </span>
-                            </li>
-                          );
-                        })}
+                        {matchesByGroup &&
+                        Array.isArray(matchesByGroup[g.id]) ? (
+                          matchesByGroup[g.id].length > 0 ? (
+                            matchesByGroup[g.id].map((m: any) => {
+                              const teamA = tournament.registeredTeams?.find(
+                                (t: any) => t.id === m.teamAId
+                              );
+                              const teamB = tournament.registeredTeams?.find(
+                                (t: any) => t.id === m.teamBId
+                              );
+
+                              return (
+                                <li
+                                  key={m.id}
+                                  className="flex justify-between items-center bg-gray-800/50 p-3 rounded-md border border-gray-700"
+                                >
+                                  <span>
+                                    <strong>
+                                      {teamA?.team?.name ||
+                                        teamA?.teamName ||
+                                        "Equipo A"}
+                                    </strong>{" "}
+                                    vs{" "}
+                                    <strong>
+                                      {teamB?.team?.name ||
+                                        teamB?.teamName ||
+                                        "Equipo B"}
+                                    </strong>
+                                  </span>
+
+                                  <span className="text-sm text-text-secondary">
+                                    {m.date
+                                      ? new Date(m.date).toLocaleDateString(
+                                          "es-CO"
+                                        ) // o "en-CA" si quieres YYYY-MM-DD
+                                      : "Sin fecha"}{" "}
+                                    —{" "}
+                                    {m.date
+                                      ? new Date(m.date).toLocaleTimeString(
+                                          "es-CO",
+                                          {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          }
+                                        )
+                                      : "Sin hora"}
+                                  </span>
+
+                                  {(() => {
+                                    const matchDate = m.date
+                                      ? new Date(m.date)
+                                      : null;
+                                    const now = new Date();
+
+                                    const tempDate = editedDates[m.id]
+                                      ? new Date(editedDates[m.id])
+                                      : matchDate;
+
+                                    const isFutureSaved =
+                                      matchDate && matchDate >= now;
+                                    const isEditing =
+                                      editingDates[m.id] || false;
+
+                                    // === MODO EDICIÓN (APLazar FECHA) ===
+                                    if (isEditing) {
+                                      return (
+                                        <div className="flex items-center gap-2">
+                                          {/* Fecha */}
+                                          <input
+                                            type="date"
+                                            value={
+                                              tempDate
+                                                ? tempDate.toLocaleDateString(
+                                                    "en-CA"
+                                                  )
+                                                : ""
+                                            }
+                                            onChange={(e) => {
+                                              const newDate = e.target.value;
+                                              setEditedDates((prev) => {
+                                                const current = new Date(
+                                                  tempDate || Date.now()
+                                                );
+                                                const [year, month, day] =
+                                                  newDate
+                                                    .split("-")
+                                                    .map(Number);
+                                                current.setFullYear(
+                                                  year,
+                                                  month - 1,
+                                                  day
+                                                );
+                                                return {
+                                                  ...prev,
+                                                  [m.id]: current.toISOString(),
+                                                };
+                                              });
+                                            }}
+                                            className="w-auto p-2 border rounded-md bg-gray-800 text-white"
+                                          />
+
+                                          {/* Hora */}
+                                          <input
+                                            type="time"
+                                            value={
+                                              tempDate
+                                                ? tempDate
+                                                    .toTimeString()
+                                                    .slice(0, 5)
+                                                : ""
+                                            }
+                                            onChange={(e) => {
+                                              const newTime = e.target.value;
+                                              setEditedDates((prev) => {
+                                                const current = new Date(
+                                                  tempDate || Date.now()
+                                                );
+                                                const [hours, minutes] = newTime
+                                                  .split(":")
+                                                  .map(Number);
+                                                current.setHours(
+                                                  hours,
+                                                  minutes,
+                                                  0,
+                                                  0
+                                                );
+                                                return {
+                                                  ...prev,
+                                                  [m.id]: current.toISOString(),
+                                                };
+                                              });
+                                            }}
+                                            className="w-auto p-2 border rounded-md bg-gray-800 text-white"
+                                          />
+
+                                          <button
+                                            onClick={() => {
+                                              const finalDate =
+                                                editedDates[m.id];
+                                              if (!finalDate) return;
+                                              handleSaveMatchDate({
+                                                ...m,
+                                                date: finalDate,
+                                              });
+                                              // Limpia fecha temporal y modo edición
+                                              setEditedDates((prev) => {
+                                                const copy = { ...prev };
+                                                delete copy[m.id];
+                                                return copy;
+                                              });
+                                              setEditingDates((prev) => ({
+                                                ...prev,
+                                                [m.id]: false,
+                                              }));
+                                            }}
+                                            className="px-3 py-2 text-sm rounded-md bg-primary hover:bg-primary/80 text-white"
+                                          >
+                                            Guardar
+                                          </button>
+
+                                          <button
+                                            onClick={() =>
+                                              setEditingDates((prev) => ({
+                                                ...prev,
+                                                [m.id]: false,
+                                              }))
+                                            }
+                                            className="px-3 py-2 text-sm rounded-md bg-gray-700 hover:bg-gray-600 text-white"
+                                          >
+                                            Cancelar
+                                          </button>
+                                        </div>
+                                      );
+                                    }
+
+                                    if (m.status === "in_progress") {
+                                      return (
+                                        <div className="flex items-center gap-2">
+                                          <Link to={`/match/${m.id}`}>
+                                            <button className="px-3 py-2 text-sm rounded-md bg-red-600 hover:bg-red-500 text-white">
+                                              Ir a Encuentro
+                                            </button>
+                                          </Link>
+                                          
+                                        </div>
+                                      );
+                                    }
+                                    if(m.status === "finished" || m.status === "cancelled") return <div className="flex items-center gap-2">
+                                          <Link to={`/match/${m.id}`}>
+                                            <button className="px-3 py-2 text-sm rounded-md bg-red-600 hover:bg-red-500 text-white">
+                                              Ver Detalles
+                                            </button>
+                                          </Link>
+                                          
+                                        </div>
+
+                                    // === MODO NORMAL ===
+                                    if (isFutureSaved) {
+                                      return (
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            onClick={() => {
+                                              m.status = "in_progress";
+                                              handleStartMatch(m);
+                                            }}
+                                            className="px-3 py-2 text-sm rounded-md bg-primary hover:bg-primary/80 text-white"
+                                          >
+                                            Iniciar Encuentro
+                                          </button>
+
+                                          <button
+                                            onClick={() =>
+                                              setEditingDates((prev) => ({
+                                                ...prev,
+                                                [m.id]: true,
+                                              }))
+                                            }
+                                            className="px-3 py-2 text-sm rounded-md bg-yellow-600 hover:bg-yellow-500 text-white"
+                                          >
+                                            Aplazar Fecha
+                                          </button>
+                                        </div>
+                                      );
+                                    }
+
+                                    // === MODO CREAR FECHA (aún no existe fecha guardada) ===
+                                    return (
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="date"
+                                          value={
+                                            tempDate
+                                              ? tempDate.toLocaleDateString(
+                                                  "en-CA"
+                                                )
+                                              : ""
+                                          }
+                                          onChange={(e) => {
+                                            const newDate = e.target.value;
+                                            setEditedDates((prev) => {
+                                              const current = new Date(
+                                                tempDate || Date.now()
+                                              );
+                                              const [year, month, day] = newDate
+                                                .split("-")
+                                                .map(Number);
+                                              current.setFullYear(
+                                                year,
+                                                month - 1,
+                                                day
+                                              );
+                                              return {
+                                                ...prev,
+                                                [m.id]: current.toISOString(),
+                                              };
+                                            });
+                                          }}
+                                          className="w-auto p-2 border rounded-md bg-gray-800 text-white"
+                                        />
+
+                                        <input
+                                          type="time"
+                                          value={
+                                            tempDate
+                                              ? tempDate
+                                                  .toTimeString()
+                                                  .slice(0, 5)
+                                              : ""
+                                          }
+                                          onChange={(e) => {
+                                            const newTime = e.target.value;
+                                            setEditedDates((prev) => {
+                                              const current = new Date(
+                                                tempDate || Date.now()
+                                              );
+                                              const [hours, minutes] = newTime
+                                                .split(":")
+                                                .map(Number);
+                                              current.setHours(
+                                                hours,
+                                                minutes,
+                                                0,
+                                                0
+                                              );
+                                              return {
+                                                ...prev,
+                                                [m.id]: current.toISOString(),
+                                              };
+                                            });
+                                          }}
+                                          className="w-auto p-2 border rounded-md bg-gray-800 text-white"
+                                        />
+
+                                        <button
+                                          onClick={() => {
+                                            const finalDate = editedDates[m.id];
+                                            if (!finalDate) return;
+
+                                            handleSaveMatchDate({
+                                              ...m,
+                                              date: finalDate,
+                                            });
+
+                                            setEditedDates((prev) => {
+                                              const copy = { ...prev };
+                                              delete copy[m.id];
+                                              return copy;
+                                            });
+                                          }}
+                                          className="px-3 py-2 text-sm rounded-md bg-primary hover:bg-primary/80 text-white"
+                                        >
+                                          Guardar
+                                        </button>
+                                      </div>
+                                    );
+                                  })()}
+                                </li>
+                              );
+                            })
+                          ) : (
+                            <p className="text-text-secondary">
+                              No hay encuentros aún.
+                            </p>
+                          )
+                        ) : (
+                          <p className="text-text-secondary">
+                            Cargando encuentros...
+                          </p>
+                        )}
                       </ul>
                     )}
                   </li>
-                );
-              })}
+                ))}
+              </ul>
             </ul>
           ) : (
             <div className="flex flex-col items-center gap-3 text-center">
@@ -373,17 +737,14 @@ const handleAccordionToggle = (groupIndex: number) => {
         <ModalDialog
           isOpen={openDialog}
           onClose={() => setOpenDialog(false)}
-          title="Se han creado encuentros"
+          title="Información"
           variant="info"
           showCloseIcon={false}
           confirmText="Aceptar"
-          cancelText="Cancelar"
-          onConfirm={async () => {
-            setOpenDialog(false);
-          }}
-          showCancel={false}
+          showCancel={showCancelDialog}
+          onConfirm={() => setOpenDialog(false)}
         >
-          <p>¿Estás seguro de eliminar el torneo?</p>
+          <p>{dialogMessage}</p>
         </ModalDialog>
       )}
     </div>

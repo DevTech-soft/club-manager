@@ -148,6 +148,13 @@ export interface MatchSet {
   teamAPoints: number;
   teamBPoints: number;
   winnerId?: string | null;
+  status: "pending" |  "in_progress" | "finished";
+}
+
+export interface FinishSetResponse {
+  finishedSet: MatchSet;
+  nextSet: MatchSet;
+  allSets: MatchSet[];
 }
 
 export interface Match {
@@ -159,7 +166,7 @@ export interface Match {
   sportType: string;     
   round?: number | null;
   date?: string | Date | null;
-  status: "pending" | "in_progress" | "finished";
+  status: "pending" | "in_progress" | "finished" | "cancelled";
   winnerId?: string | null;
   notes?: string | null;
   metadata?: Record<string, any> | null; 

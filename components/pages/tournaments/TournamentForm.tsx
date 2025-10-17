@@ -39,6 +39,10 @@ const TournamentForm: React.FC<TournamentFormProps> = ({
     type: TournamentType.standard,
     quickTeamNames: [],
     registeredTeams: [],
+    matches: [],
+    groups: [],
+    createdAt: "",
+    updatedAt: "",
   });
 
   const subCategoryOptions: Record<MainCategory, SubCategory[]> = {

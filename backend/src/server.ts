@@ -538,7 +538,7 @@ app.get("/api/tournaments/:id", async (req, res, next) => {
         const tournament = await prisma.tournament.findUnique({
             where: { id },
             include: {
-                groups: { include: { matches: true  } },
+                // groups: { include: { matches: true  } },
                 registeredTeams: {
                     include: {
                         team: {
@@ -556,6 +556,86 @@ app.get("/api/tournaments/:id", async (req, res, next) => {
         next(error);
     }
 });
+
+
+app.get("/api/groups", async (req, res, next) => {
+    try {
+        const { tournamentId } = req.query; // 👈 aquí es query
+        if (!tournamentId) return res.status(400).json({ error: "Falta tournamentId" });
+
+        const groups = await prisma.tournamentGroup.findMany({
+            where: { tournamentId: tournamentId as string },
+        });
+
+        res.json(groups);
+    } catch (error) {
+        next(error);
+    }
+});
+
+
+app.get("/api/matches", async (req, res, next) => {
+    try {
+        const { groupId } = req.query;
+        if (!groupId) return res.status(400).json({ error: "groupId required" });
+        const matches = await prisma.match.findMany({
+            where: { groupId: groupId as string },
+            include: {
+                group: true
+            },
+        });
+        res.json(matches);
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.put("/api/matches/:id", async (req, res, next) => {
+    try {
+        console.log("Updating match:", req.params.id, req.body);
+        const { id } = req.params;
+        const { data } = req.body;
+
+        const match = await prisma.match.update({
+            where: { id },
+            data: {
+                tournament: { connect: { id: data.tournamentId } },
+                group: { connect: { id: data.groupId } },
+                date: data.date,
+                status: data.status,
+                sets: data.sets,
+                winnerId: data.winnerId
+
+            },
+        });
+
+
+        res.json(match);
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.patch("/api/matches/:id/finish", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, winnerId } = req.body;
+
+    const updatedMatch = await prisma.match.update({
+      where: { id },
+      data: { status, winnerId },
+    });
+
+    res.json(updatedMatch);
+  } catch (error) {
+    console.error("Error updating match status:", error);
+    res.status(500).json({ error: "Error updating match status" });
+  }
+});
+
+
+
+
 
 app.post("/api/matches", async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -593,90 +673,256 @@ app.post("/api/matches", async (req: Request, res: Response, next: NextFunction)
 
 
 app.post("/api/matches/groups", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { tournamentId, groupsCount = 2 } = req.body;
-    if (!tournamentId) return res.status(400).json({ error: "tournamentId required" });
+    try {
+        const { tournamentId, groupsCount = 2 } = req.body;
+        if (!tournamentId) return res.status(400).json({ error: "tournamentId required" });
 
-    const teams = await prisma.tournamentTeam.findMany({ where: { tournamentId } });
-    if (teams.length < 2) return res.status(400).json({ error: "At least 2 teams required" });
-    if (groupsCount < 1) return res.status(400).json({ error: "groupsCount must be > 0" });
+        const teams = await prisma.tournamentTeam.findMany({ where: { tournamentId } });
+        if (teams.length < 2) return res.status(400).json({ error: "At least 2 teams required" });
+        if (groupsCount < 1) return res.status(400).json({ error: "groupsCount must be > 0" });
 
-    // Mezclar equipos aleatoriamente
-    const shuffled = [...teams].sort(() => Math.random() - 0.5);
+        // Mezclar equipos aleatoriamente
+        const shuffled = [...teams].sort(() => Math.random() - 0.5);
 
-    // Dividir equipos en grupos
-    const groups: any[] = Array.from({ length: groupsCount }, () => []);
-    shuffled.forEach((team, i) => {
-      groups[i % groupsCount].push(team);
-    });
-
-    const createdGroups = await prisma.$transaction(async (tx) => {
-      const groupRecords = [];
-      const matchRecords = [];
-
-      for (let g = 0; g < groups.length; g++) {
-        const groupName = `Grupo ${String.fromCharCode(65 + g)}`; // A, B, C...
-        const group = await tx.tournamentGroup.create({
-          data: { tournamentId, name: groupName },
+        // Dividir equipos en grupos
+        const groups: any[] = Array.from({ length: groupsCount }, () => []);
+        shuffled.forEach((team, i) => {
+            groups[i % groupsCount].push(team);
         });
-        groupRecords.push(group);
 
-        // Asignar equipos a este grupo
-        for (const team of groups[g]) {
-          await tx.tournamentTeam.update({
-            where: { id: team.id },
-            data: { groupId: group.id },
-          });
-        }
+        const createdGroups = await prisma.$transaction(async (tx) => {
+            const groupRecords = [];
+            const matchRecords = [];
 
-        // Generar encuentros internos (round robin)
-        for (let i = 0; i < groups[g].length; i++) {
-          for (let j = i + 1; j < groups[g].length; j++) {
-            matchRecords.push({
-              tournamentId,
-              groupId: group.id,
-              teamAId: groups[g][i].id,
-              teamBId: groups[g][j].id,
-              sportType: "volleyball",
-              status: "pending",
-            });
-          }
-        }
-      }
+            for (let g = 0; g < groups.length; g++) {
+                const groupName = `Grupo ${String.fromCharCode(65 + g)}`; // A, B, C...
+                const group = await tx.tournamentGroup.create({
+                    data: { tournamentId, name: groupName },
+                });
+                groupRecords.push(group);
 
-      // Crear todos los matches a la vez
-      await tx.match.createMany({ data: matchRecords, skipDuplicates: true });
+                // Asignar equipos a este grupo
+                for (const team of groups[g]) {
+                    await tx.tournamentTeam.update({
+                        where: { id: team.id },
+                        data: { groupId: group.id },
+                    });
+                }
 
-      return { groups: groupRecords, matches: matchRecords.length };
-    });
+                // Generar encuentros internos (round robin)
+                for (let i = 0; i < groups[g].length; i++) {
+                    for (let j = i + 1; j < groups[g].length; j++) {
+                        matchRecords.push({
+                            tournamentId,
+                            groupId: group.id,
+                            teamAId: groups[g][i].id,
+                            teamBId: groups[g][j].id,
+                            sportType: "volleyball",
+                            status: "pending",
+                        });
+                    }
+                }
+            }
 
-    res.status(201).json({
-      message: `Se generaron ${createdGroups.groups.length} grupos y ${createdGroups.matches} encuentros.`,
-    });
-  } catch (error) {
-    next(error);
-  }
+            // Crear todos los matches a la vez
+            await tx.match.createMany({ data: matchRecords, skipDuplicates: true });
+
+            return { groups: groupRecords, matches: matchRecords.length };
+        });
+
+        res.status(201).json({
+            message: `Se generaron ${createdGroups.groups.length} grupos y ${createdGroups.matches} encuentros.`,
+        });
+    } catch (error) {
+        next(error);
+    }
 });
 
 
 app.get("/api/matches", async (req, res, next) => {
-  try {
-    const { tournamentId } = req.query;
+    try {
+        const { tournamentId } = req.query;
 
-    if (!tournamentId || typeof tournamentId !== "string") {
-      return res.status(400).json({ error: "tournamentId is required" });
+        if (!tournamentId || typeof tournamentId !== "string") {
+            return res.status(400).json({ error: "tournamentId is required" });
+        }
+
+        const matches = await prisma.match.findMany({
+            where: { tournamentId },
+
+        });
+
+        res.json(matches);
+    } catch (error) {
+        next(error);
     }
-
-    const matches = await prisma.match.findMany({
-      where: { tournamentId },
-      
-    });
-
-    res.json(matches);
-  } catch (error) {
-    next(error);
-  }
 });
+
+app.get("/api/matches/:id", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        if (!id || typeof id !== "string") {
+            return res.status(400).json({ error: "Invalid match ID" });
+        }
+
+        const match = await prisma.match.findUnique({
+            where: { id },
+            include: {
+                teamA: {
+                    include: {
+                        team: {
+                            include: {
+                                players: true,
+                                coach: { select: { firstName: true, lastName: true } },
+                            },
+                        },
+                    },
+                },
+                teamB: {
+                    include: {
+                        team: {
+                            include: {
+                                players: true,
+                                coach: { select: { firstName: true, lastName: true } },
+                            },
+                        },
+                    },
+                },
+                sets: {
+                    orderBy: { setNumber: 'asc' }
+                },
+                group: true,
+                tournament: true,
+            },
+        });
+        const cleanMatch = {
+            ...match,
+            teamAName: match?.teamA.team?.name || match?.teamA.teamName,
+            teamBName: match?.teamB.team?.name || match?.teamB.teamName,
+        };
+
+
+        if (!match) {
+            return res.status(404).json({ error: "Match not found" });
+        }
+
+        res.json(cleanMatch);
+    } catch (error) {
+        next(error);
+    }
+});
+
+
+app.post("/api/matches/:matchId/sets", async (req, res, next) => {
+    try {
+        const { matchId } = req.params;
+
+        // Verificar si el partido existe
+        const match = await prisma.match.findUnique({
+            where: { id: matchId },
+        });
+
+        if (!match) {
+            return res.status(404).json({ error: "Match not found" });
+        }
+
+        // Verificar si ya hay un set en progreso para evitar duplicados
+        const activeSet = await prisma.matchSet.findFirst({
+            where: { matchId, status: "in_progress" },
+        });
+
+        if (activeSet) {
+            return res.status(400).json({ error: "There is already an active set" });
+        }
+
+        // Obtener cuántos sets existen ya para determinar el número del siguiente
+        const existingSets = await prisma.matchSet.count({ where: { matchId } });
+        const nextSetNumber = existingSets + 1;
+
+        // Crear el nuevo set (normalmente el primero)
+        const newSet = await prisma.matchSet.create({
+            data: {
+                matchId,
+                setNumber: nextSetNumber,
+                teamAPoints: 0,
+                teamBPoints: 0,
+                status: "in_progress",
+            },
+        });
+
+        // Obtener todos los sets del partido (incluido el recién creado)
+        const sets = await prisma.matchSet.findMany({
+            where: { matchId },
+            orderBy: { setNumber: "asc" },
+        });
+
+        res.status(201).json(sets);
+    } catch (error) {
+        console.error("Error creating match set:", error);
+        next(error);
+    }
+});
+
+
+app.post("/api/matches/:matchId/sets/:setId/finish", async (req, res, next) => {
+    try {
+        const { matchId, setId } = req.params;
+        const { winnerId } = req.body;
+
+        // Finalizar el set actual
+        const finishedSet = await prisma.matchSet.update({
+            where: { id: setId },
+            data: { status: "finished", winnerId },
+        });
+
+        // Obtener todos los sets existentes del partido
+        const allSets = await prisma.matchSet.findMany({
+            where: { matchId },
+            orderBy: { setNumber: "asc" },
+        });
+
+        // Crear el siguiente set automáticamente
+        const nextSetNumber = allSets.length + 1;
+        const nextSet = await prisma.matchSet.create({
+            data: {
+                matchId,
+                setNumber: nextSetNumber,
+                teamAPoints: 0,
+                teamBPoints: 0,
+                status: "in_progress",
+            },
+        });
+
+        res.json({ finishedSet, nextSet, allSets: [...allSets, nextSet] });
+    } catch (error) {
+        console.error("Error finishing set:", error);
+        next(error);
+    }
+});
+
+
+app.patch("/api/matches/:matchId/sets/:setId", async (req, res, next) => {
+    try {
+        const { matchId, setId } = req.params;
+        const { teamAPoints, teamBPoints } = req.body;
+
+        // Validaciones mínimas
+        if (typeof teamAPoints !== "number" || typeof teamBPoints !== "number") {
+            return res.status(400).json({ error: "Invalid points" });
+        }
+        // Actualizar puntos del set
+        const updatedSet = await prisma.matchSet.update({
+            where: { id: setId },
+            data: { teamAPoints, teamBPoints },
+        });
+
+        res.json(updatedSet);
+    } catch (error) {
+        next(error);
+    }
+});
+
 
 
 
@@ -750,4 +996,9 @@ app.put('/api/club-settings', async (req: Request, res: Response, next: NextFunc
 
 app.listen(PORT, () => {
     console.log(`Backend server is running on http://localhost:${PORT}`);
+});
+
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
 });

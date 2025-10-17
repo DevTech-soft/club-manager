@@ -142,6 +142,13 @@ export interface MatchSet {
   teamAPoints: number;
   teamBPoints: number;
   winnerId?: string | null;
+  status: "pending" |  "in_progress" | "finished";
+}
+
+export interface FinishSetResponse {
+  finishedSet: MatchSet;
+  nextSet: MatchSet;
+  allSets: MatchSet[];
 }
 
 export interface Match {

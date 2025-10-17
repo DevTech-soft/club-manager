@@ -165,9 +165,14 @@ model TournamentTeam {
   groupId       String?         
   group         TournamentGroup? @relation("GroupTeams", fields: [groupId], references: [id])
 
+  // ✅ Relación inversa hacia los partidos donde participa
+  matchesAsTeamA Match[] @relation("MatchTeamA")
+  matchesAsTeamB Match[] @relation("MatchTeamB")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
 
 
 
@@ -178,8 +183,12 @@ model Match {
   tournamentId   String
   groupId        String? 
   group          TournamentGroup? @relation(fields: [groupId], references: [id])
+
+  // ✅ Relación con TournamentTeam en lugar de Team
   teamAId        String
   teamBId        String
+  teamA          TournamentTeam @relation("MatchTeamA", fields: [teamAId], references: [id])
+  teamB          TournamentTeam @relation("MatchTeamB", fields: [teamBId], references: [id])
 
   sportType      String      @default("volleyball")
   round          Int?
@@ -190,6 +199,8 @@ model Match {
   sets           MatchSet[]
 }
 
+
+
 model MatchSet {
   id             String    @id @default(uuid())
   match          Match     @relation(fields: [matchId], references: [id])
@@ -198,8 +209,8 @@ model MatchSet {
   setNumber      Int
   teamAPoints    Int
   teamBPoints    Int
-
   winnerId       String?   // por si quieres guardar quién ganó el set
+  status         String    @default("pending")
 }
 
 

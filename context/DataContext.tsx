@@ -16,6 +16,9 @@ import {
   Tournament,
   TournamentCreationData,
   Match,
+  TournamentGroup,
+  MatchSet,
+  FinishSetResponse,
 } from "../types";
 import { api } from "../services/api";
 
@@ -46,6 +49,16 @@ interface DataContextType {
   generateMatches: (tournamentId: string) => Promise<void>;
   getMatchesByTournamentId: (tournamentId: string) => Promise<Match[]>;
   generateGroupsAndMatches: (tournamentId: string, groupsCount: number) => Promise<void>;
+  getGroupsByTournamentId: (tournamentId: string) => Promise<TournamentGroup[]>;
+  getMatchesByGroupId: (groupId: string) => Promise<Match[]>;
+  updateMatch: (matchData: Match) => Promise<Match>;
+  getMatchById: (matchId: string) => Promise<Match | undefined>;
+  createSet: (matchId: string) => Promise<MatchSet>;
+  finishSet: (matchId: string, setId: string, teamAPoints: number, teamBPoints: number, winnerSet: string) => Promise<FinishSetResponse>;
+  updateSetScore: (matchId: string, setId: string, teamAPoints: number, teamBPoints: number) => Promise<MatchSet>;
+  finishMatch: (matchId: string, data: { status: string; winnerId: string }) => Promise<Match>;
+
+  
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -205,6 +218,55 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     await fetchData(); // Refetch to get the canonical state.
   };
 
+  const getGroupsByTournamentId = async (tournamentId: string) => {
+    const groups = await api.getGroupsByTournamentId(tournamentId);
+    await fetchData();
+    return groups;
+  };
+
+  const getMatchesByGroupId = async (groupId: string) => {
+    const matches = await api.getMatchesByGroupId(groupId);
+    await fetchData();
+    return matches;
+  };
+
+  const updateMatch = async (matchData: Match) => {
+    const updatedMatch = await api.updateMatch(matchData);
+    await fetchData(); // Refetch to get the canonical state.
+    return updatedMatch;
+    
+  };
+
+  const getMatchById = async (matchId: string) => {
+    const match = await api.getMatchById(matchId);
+    await fetchData();
+    return match;
+  }
+
+  const finishMatch = async (matchId: string, data: { status: string; winnerId: string }) => {
+    const updatedMatch = await api.finishMatch(matchId, data);
+    await fetchData(); // Refetch to get the canonical state.
+    return updatedMatch;
+  };
+
+  const createSet = async (matchId: string) => {
+    const newSet = await api.createSet(matchId);
+    await fetchData(); // Refetch to get the canonical state.
+    return newSet;
+  }
+
+  const finishSet = async (matchId: string, setId: string, teamAPoints: number, teamBPoints: number, winnerSet: string) => {
+    const updatedSet = await api.finishSet(matchId, setId, teamAPoints, teamBPoints, winnerSet);
+    await fetchData(); // Refetch to get the canonical state.
+    return updatedSet;
+  };
+
+  const updateSetScore = async (matchId: string, setId: string, teamAPoints: number, teamBPoints: number) => {
+    const updatedSet = await api.updateSetScore(matchId, setId, teamAPoints, teamBPoints);
+    await fetchData(); // Refetch to get the canonical state.
+    return updatedSet;
+  };
+
   // Initial data fetch on component mount.
   useEffect(() => {
     fetchData();
@@ -254,6 +316,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         generateMatches,
         getMatchesByTournamentId,
         generateGroupsAndMatches,
+        getGroupsByTournamentId,
+        getMatchesByGroupId,
+        updateMatch,
+        getMatchById,
+        finishSet,
+        updateSetScore,
+        createSet,
+        finishMatch
       }}
     >
       {children}
