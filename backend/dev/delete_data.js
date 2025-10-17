@@ -9,6 +9,7 @@ async function main() {
     // await prisma.attendance.deleteMany({});
     // await prisma.coach.deleteMany({});
     // await prisma.tournament.deleteMany({});
+    await prisma.matchSet.deleteMany({});
     await prisma.match.deleteMany({});
     await prisma.tournamentGroup.deleteMany({});
     console.log("Data deleted");
