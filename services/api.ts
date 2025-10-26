@@ -204,6 +204,12 @@ export const api = {
     return fetch(`${API_BASE_URL}/matches?groupId=${groupId}`).then(handleResponse);
   },
 
+  getPositionsByTournamentId: (tournamentId: string): Promise<any[]> => {
+    return fetch(`${API_BASE_URL}/tournaments/${tournamentId}/positions`).then(handleResponse);
+  },
+
+  
+
   updateMatch: async (matchData: Match): Promise<Match> => {
     const response = await fetch(`${API_BASE_URL}/matches/${matchData.id}`, {
       method: "PUT",
@@ -239,7 +245,7 @@ export const api = {
     const response = await fetch(`${API_BASE_URL}/matches/${matchId}/sets/${setId}/finish`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teamAPoints, teamBPoints, winnerSet }),
+      body: JSON.stringify({ teamAPoints, teamBPoints, winnerId: winnerSet }),
     });
     return handleResponse(response) as Promise<FinishSetResponse>;
   },

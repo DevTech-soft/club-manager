@@ -18,9 +18,9 @@ enum MainCategory {
 }
 
 enum TournamentType {
-  QUICK     
-  STANDARD  
-} 
+  QUICK
+  STANDARD
+}
 
 enum SubCategory {
   Basico
@@ -64,9 +64,9 @@ model Player {
 }
 
 model StatsRecord {
-  id        String   @id @default(cuid())
-  date      DateTime
-  stats     Json // Corresponds to PlayerStats { attack: number, defense: number, block: number, pass: number }
+  id    String   @id @default(cuid())
+  date  DateTime
+  stats Json // Corresponds to PlayerStats { attack: number, defense: number, block: number, pass: number }
 
   player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
   playerId String
@@ -76,12 +76,12 @@ model StatsRecord {
 }
 
 model Coach {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   firstName String
   lastName  String
-  document  String   @unique
+  document  String @unique
   password  String
-  avatarUrl String   @db.Text
+  avatarUrl String @db.Text
 
   teams     Team[]
   createdAt DateTime @default(now())
@@ -89,17 +89,17 @@ model Coach {
 }
 
 model Team {
-  id                 String      @id @default(cuid())
-  name               String      @unique
+  id                 String       @id @default(cuid())
+  name               String       @unique
   mainCategory       MainCategory
   subCategory        SubCategory
-  tournament         String?     // opcional: campo antiguo, útil para mostrar texto o compatibilidad
+  tournament         String? // opcional: campo antiguo, útil para mostrar texto o compatibilidad
   tournamentPosition String?
 
   players Player[]
 
-  coach    Coach?  @relation(fields: [coachId], references: [id], onDelete: SetNull)
-  coachId  String?
+  coach   Coach?  @relation(fields: [coachId], references: [id], onDelete: SetNull)
+  coachId String?
 
   // Relación muchos a muchos (a través de TournamentTeam)
   tournamentEntries TournamentTeam[]
@@ -109,7 +109,7 @@ model Team {
 }
 
 model Tournament {
-  id                   String    @id @default(cuid())
+  id                   String         @id @default(cuid())
   name                 String
   category             String
   purpose              String
@@ -119,51 +119,50 @@ model Tournament {
   maxParticipants      Int
   registrationDeadline DateTime
   entryFee             Float
-  description          String    @db.Text
-  rules                String    @db.Text
-  prizes               String    @db.Text
+  description          String         @db.Text
+  rules                String         @db.Text
+  prizes               String         @db.Text
   organizerContact     String
   type                 TournamentType @default(STANDARD)
 
   // Para torneos rápidos (solo nombres)
-  quickTeamNames       String[]
+  quickTeamNames String[]
 
   // Para torneos normales (equipos reales o externos)
-  registeredTeams      TournamentTeam[]
-  matches     Match[]
-  groups          TournamentGroup[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  registeredTeams    TournamentTeam[]
+  matches            Match[]
+  groups             TournamentGroup[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  TournamentPosition TournamentPosition[]
 }
-
 
 model TournamentGroup {
-  id           String          @id @default(cuid())
+  id           String           @id @default(cuid())
   name         String
   tournamentId String
-  tournament   Tournament      @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament       @relation(fields: [tournamentId], references: [id])
   teams        TournamentTeam[] @relation("GroupTeams")
   matches      Match[]
-  createdAt    DateTime        @default(now())
+  createdAt    DateTime         @default(now())
 }
 
-
 model TournamentTeam {
-  id           String     @id @default(cuid())
+  id           String  @id @default(cuid())
   teamName     String
   externalClub String?
-  isExternal   Boolean    @default(false)
+  isExternal   Boolean @default(false)
 
   // Relación hacia Team (opcional)
-  team         Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  teamId       String?
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamId String?
 
   // Relación hacia Tournament (obligatoria)
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   tournamentId String
 
-  groupId       String?         
-  group         TournamentGroup? @relation("GroupTeams", fields: [groupId], references: [id])
+  groupId String?
+  group   TournamentGroup? @relation("GroupTeams", fields: [groupId], references: [id])
 
   // ✅ Relación inversa hacia los partidos donde participa
   matchesAsTeamA Match[] @relation("MatchTeamA")
@@ -173,48 +172,63 @@ model TournamentTeam {
   updatedAt DateTime @updatedAt
 }
 
+model TournamentPosition {
+  id           String     @id @default(cuid())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
 
+  teamName      String
+  played        Int @default(0)
+  wins          Int @default(0)
+  draws         Int @default(0)
+  losses        Int @default(0)
+  points        Int @default(0)
 
+  // Sets
+  setsWon       Int @default(0) // Sets a favor
+  setsLost      Int @default(0) // Sets en contra
 
+  // Puntos (points in volleyball)
+  pointsFor     Int @default(0) // Puntos a favor
+  pointsAgainst Int @default(0) // Puntos en contra
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
 model Match {
-  id             String      @id @default(uuid())
-  tournament     Tournament  @relation(fields: [tournamentId], references: [id])
-  tournamentId   String
-  groupId        String? 
-  group          TournamentGroup? @relation(fields: [groupId], references: [id])
+  id           String           @id @default(uuid())
+  tournament   Tournament       @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  groupId      String?
+  group        TournamentGroup? @relation(fields: [groupId], references: [id])
 
   // ✅ Relación con TournamentTeam en lugar de Team
-  teamAId        String
-  teamBId        String
-  teamA          TournamentTeam @relation("MatchTeamA", fields: [teamAId], references: [id])
-  teamB          TournamentTeam @relation("MatchTeamB", fields: [teamBId], references: [id])
+  teamAId String
+  teamBId String
+  teamA   TournamentTeam @relation("MatchTeamA", fields: [teamAId], references: [id])
+  teamB   TournamentTeam @relation("MatchTeamB", fields: [teamBId], references: [id])
 
-  sportType      String      @default("volleyball")
-  round          Int?
-  date           DateTime?
-  status         String      @default("pending") // pending | in_progress | finished
-  winnerId       String?
-  notes          String?
-  sets           MatchSet[]
+  sportType String     @default("volleyball")
+  round     Int?
+  date      DateTime?
+  status    String     @default("pending") // pending | in_progress | finished
+  winnerId  String?
+  notes     String?
+  sets      MatchSet[]
 }
-
-
 
 model MatchSet {
-  id             String    @id @default(uuid())
-  match          Match     @relation(fields: [matchId], references: [id])
-  matchId        String
+  id      String @id @default(uuid())
+  match   Match  @relation(fields: [matchId], references: [id])
+  matchId String
 
-  setNumber      Int
-  teamAPoints    Int
-  teamBPoints    Int
-  winnerId       String?   // por si quieres guardar quién ganó el set
-  status         String    @default("pending")
+  setNumber   Int
+  teamAPoints Int
+  teamBPoints Int
+  winnerId    String? // por si quieres guardar quién ganó el set
+  status      String  @default("pending")
 }
-
-
-
 
 model Attendance {
   playerId String

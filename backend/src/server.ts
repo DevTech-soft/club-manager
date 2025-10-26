@@ -478,22 +478,35 @@ app.get('/api/tournaments', async (req: Request, res: Response, next: NextFuncti
 
 app.post("/api/tournaments", async (req, res, next) => {
     try {
-        const { id, type, quickTeamNames, registeredTeams, ...data } = req.body;
+        const { id, type, quickTeamNames, registeredTeams, matches, groups, createdAt, updatedAt, ...data } = req.body;
 
         // Si hay equipos registrados, obtener sus nombres primero
         let teamRegistrations = undefined;
         if (type === "STANDARD" && registeredTeams && registeredTeams.length > 0) {
-            const teams = await prisma.tournamentTeam.findMany({
+            // Buscar en la tabla Team, no en TournamentTeam
+            const teams = await prisma.team.findMany({
                 where: { id: { in: registeredTeams } }
             });
+
+            // Validar que todos los equipos tengan nombre
+            const teamsWithoutName = teams.filter(t => !t.name || t.name.trim() === "");
+            if (teamsWithoutName.length > 0) {
+                return res.status(400).json({
+                    error: "Todos los equipos deben tener un nombre válido",
+                    teamsWithoutName: teamsWithoutName.map(t => t.id)
+                });
+            }
 
             teamRegistrations = {
                 create: registeredTeams.map((teamId: string) => {
                     const team = teams.find(t => t.id === teamId);
+                    if (!team) {
+                        throw new Error(`Equipo con ID ${teamId} no encontrado`);
+                    }
                     return {
-                        teamName: team?.teamName || "Equipo desconocido",
+                        teamName: team.name,
                         isExternal: false,
-                        externalClub: team?.externalClub || "Sin club",
+                        externalClub: "Sin club",
                         team: { connect: { id: teamId } }
                     };
                 })
@@ -525,7 +538,7 @@ app.post("/api/tournaments", async (req, res, next) => {
                 }
             }
         });
-        console.log("Torneo creado:", tournament);
+        // console.log("Torneo creado:", tournament);
         res.status(201).json(tournament);
     } catch (error) {
         next(error);
@@ -592,7 +605,7 @@ app.get("/api/matches", async (req, res, next) => {
 
 app.put("/api/matches/:id", async (req, res, next) => {
     try {
-        console.log("Updating match:", req.params.id, req.body);
+        // console.log("Updating match:", req.params.id, req.body);
         const { id } = req.params;
         const { data } = req.body;
 
@@ -617,21 +630,163 @@ app.put("/api/matches/:id", async (req, res, next) => {
 });
 
 app.patch("/api/matches/:id/finish", async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { status, winnerId } = req.body;
+    try {
+        const { id } = req.params;
+        const { status, winnerId } = req.body;
 
-    const updatedMatch = await prisma.match.update({
-      where: { id },
-      data: { status, winnerId },
+        const updatedMatch = await prisma.match.update({
+            where: { id },
+            data: { status, winnerId },
+            include: { teamA: true, teamB: true, sets: true, tournament: true },
+        });
+        await updateTournamentPositions(id);
+
+        res.json(updatedMatch);
+    } catch (error) {
+        console.error("Error updating match status:", error);
+        res.status(500).json({ error: "Error updating match status" });
+    }
+});
+
+// GET /api/tournaments/:tournamentId/positions
+app.get("/api/tournaments/:tournamentId/positions", async (req, res, next) => {
+    try {
+        const { tournamentId } = req.params;
+
+        const positions = await prisma.tournamentPosition.findMany({
+            where: { tournamentId },
+            orderBy: { points: "desc" },
+        });
+
+        res.json(positions);
+    } catch (error) {
+        next(error);
+    }
+});
+
+//POST /api/tournaments/:tournamentId/positions
+const updateTournamentPositions = async (matchId: string) => {
+    const match = await prisma.match.findUnique({
+        where: { id: matchId },
+        include: {
+            teamA: true,
+            teamB: true,
+            sets: true,
+            tournament: true,
+        },
+    });
+    if (!match) throw new Error("Match not found");
+
+    const teamAWins = match.sets.filter(s => s.winnerId === match.teamAId).length;
+    const teamBWins = match.sets.filter(s => s.winnerId === match.teamBId).length;
+    console.log(`sets in match ${matchId}:`, match.sets);
+    console.log(`Updating positions for match ${matchId}: Team A wins ${teamAWins}, Team B wins ${teamBWins}`);
+    // Calcular sets ganados/perdidos
+    const setsA = { won: teamAWins, lost: teamBWins };
+    const setsB = { won: teamBWins, lost: teamAWins };
+
+    // Calcular puntos a favor/en contra
+    const pointsA = match.sets.reduce((acc, set) => acc + set.teamAPoints, 0);
+    const pointsB = match.sets.reduce((acc, set) => acc + set.teamBPoints, 0);
+
+    // Resultado
+    let resultA = { wins: 0, draws: 0, losses: 0, points: 0 };
+    let resultB = { wins: 0, draws: 0, losses: 0, points: 0 };
+
+    if (teamAWins > teamBWins) {
+        resultA = { wins: 1, draws: 0, losses: 0, points: 3 };
+        resultB = { wins: 0, draws: 0, losses: 1, points: 0 };
+    } else if (teamBWins > teamAWins) {
+        resultB = { wins: 1, draws: 0, losses: 0, points: 3 };
+        resultA = { wins: 0, draws: 0, losses: 1, points: 0 };
+    } else {
+        resultA = resultB = { wins: 0, draws: 1, losses: 0, points: 1 };
+    }
+
+    // Buscar o crear posición para equipo A
+    const existingPositionA = await prisma.tournamentPosition.findFirst({
+        where: {
+            tournamentId: match.tournamentId,
+            teamName: match.teamA.teamName,
+        },
     });
 
-    res.json(updatedMatch);
-  } catch (error) {
-    console.error("Error updating match status:", error);
-    res.status(500).json({ error: "Error updating match status" });
-  }
-});
+    if (existingPositionA) {
+        await prisma.tournamentPosition.update({
+            where: { id: existingPositionA.id },
+            data: {
+                played: { increment: 1 },
+                wins: { increment: resultA.wins },
+                draws: { increment: resultA.draws },
+                losses: { increment: resultA.losses },
+                points: { increment: resultA.points },
+                setsWon: { increment: setsA.won },
+                setsLost: { increment: setsA.lost },
+                pointsFor: { increment: pointsA },
+                pointsAgainst: { increment: pointsB },
+            },
+        });
+    } else {
+        await prisma.tournamentPosition.create({
+            data: {
+                tournamentId: match.tournamentId,
+                teamName: match.teamA.teamName,
+                played: 1,
+                wins: resultA.wins,
+                draws: resultA.draws,
+                losses: resultA.losses,
+                points: resultA.points,
+                setsWon: setsA.won,
+                setsLost: setsA.lost,
+                pointsFor: pointsA,
+                pointsAgainst: pointsB,
+            },
+        });
+    }
+
+    // Buscar o crear posición para equipo B
+    const existingPositionB = await prisma.tournamentPosition.findFirst({
+        where: {
+            tournamentId: match.tournamentId,
+            teamName: match.teamB.teamName,
+        },
+    });
+
+    if (existingPositionB) {
+        await prisma.tournamentPosition.update({
+            where: { id: existingPositionB.id },
+            data: {
+                played: { increment: 1 },
+                wins: { increment: resultB.wins },
+                draws: { increment: resultB.draws },
+                losses: { increment: resultB.losses },
+                points: { increment: resultB.points },
+                setsWon: { increment: setsB.won },
+                setsLost: { increment: setsB.lost },
+                pointsFor: { increment: pointsB },
+                pointsAgainst: { increment: pointsA },
+            },
+        });
+    } else {
+        await prisma.tournamentPosition.create({
+            data: {
+                tournamentId: match.tournamentId,
+                teamName: match.teamB.teamName,
+                played: 1,
+                wins: resultB.wins,
+                draws: resultB.draws,
+                losses: resultB.losses,
+                points: resultB.points,
+                setsWon: setsB.won,
+                setsLost: setsB.lost,
+                pointsFor: pointsB,
+                pointsAgainst: pointsA,
+            },
+        });
+    }
+};
+
+
 
 
 

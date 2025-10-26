@@ -21,6 +21,7 @@ import {
   FinishSetResponse,
 } from "../types";
 import { api } from "../services/api";
+import { TournamentPosition } from "@/backend/src/types";
 
 interface DataContextType {
   players: Player[];
@@ -57,6 +58,7 @@ interface DataContextType {
   finishSet: (matchId: string, setId: string, teamAPoints: number, teamBPoints: number, winnerSet: string) => Promise<FinishSetResponse>;
   updateSetScore: (matchId: string, setId: string, teamAPoints: number, teamBPoints: number) => Promise<MatchSet>;
   finishMatch: (matchId: string, data: { status: string; winnerId: string }) => Promise<Match>;
+  getPositionsByTournamentId: (tournamentId: string) => Promise<TournamentPosition[]>;
 
   
 }
@@ -267,6 +269,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     return updatedSet;
   };
 
+  const getPositionsByTournamentId = async (tournamentId: string) => {
+    const positions = await api.getPositionsByTournamentId(tournamentId);
+    await fetchData();
+    return positions;
+  }
+
   // Initial data fetch on component mount.
   useEffect(() => {
     fetchData();
@@ -323,7 +331,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         finishSet,
         updateSetScore,
         createSet,
-        finishMatch
+        finishMatch,
+        getPositionsByTournamentId,
+
       }}
     >
       {children}

@@ -4,16 +4,18 @@ import fs from "fs";
 const prisma = new PrismaClient();
 
 async function main() {
-    // await prisma.player.deleteMany({});
-    // await prisma.team.deleteMany({});
-    // await prisma.attendance.deleteMany({});
-    // await prisma.coach.deleteMany({});
-    // await prisma.tournament.deleteMany({});
-    await prisma.matchSet.deleteMany({});
-    await prisma.match.deleteMany({});
-    await prisma.tournamentGroup.deleteMany({});
-    console.log("Data deleted");
-} 
+  // await prisma.player.deleteMany({});
+  // await prisma.team.deleteMany({});
+  // await prisma.attendance.deleteMany({});
+  // await prisma.coach.deleteMany({});
+
+  await prisma.matchSet.deleteMany({});
+  await prisma.tournamentPosition.deleteMany({});
+  await prisma.match.deleteMany({});
+  await prisma.tournamentGroup.deleteMany({});
+  // await prisma.tournament.deleteMany({});
+  console.log("Data deleted");
+}
 
 main()
   .catch((e) => {

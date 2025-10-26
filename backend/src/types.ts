@@ -131,8 +131,19 @@ export interface Tournament {
   groups?: TournamentGroup[];
   createdAt: string;
   updatedAt: string;
+}
 
-  
+export interface TournamentPosition {
+  id: string;
+  teamName: string;
+  teamId: string;
+  played:   number;
+  wins  :   number;
+  draws :   number;
+  losses:   number;
+  points:   number;
+  createdAt :String;
+  updatedAt :String; 
 }
 
 export interface MatchSet {

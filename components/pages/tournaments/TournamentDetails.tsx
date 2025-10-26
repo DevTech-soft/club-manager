@@ -2,7 +2,12 @@
 import Button from "@/components/ui/Button";
 import ModalDialog from "@/components/ui/Dialog";
 import { useData } from "@/context/DataContext";
-import { Match, TournamentGroup, TournamentType } from "@/types";
+import {
+  Match,
+  TournamentGroup,
+  TournamentPosition,
+  TournamentType,
+} from "@/types";
 
 import {
   Calendar,
@@ -60,9 +65,11 @@ const TournamentDetails: React.FC = () => {
     getMatchesByGroupId,
     updateMatch,
     createSet,
+    getPositionsByTournamentId,
   } = useData();
   const [tournament, setTournament] = useState<any>(null);
   const [matchesByGroup, setMatches] = useState<any>(null);
+  const [positions, setPositions] = useState<TournamentPosition[]>([]);
   const [groups, setGroups] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -144,10 +151,28 @@ const TournamentDetails: React.FC = () => {
     fetchGroups();
   }, [id, getGroupsByTournamentId]);
 
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        if (!id) return;
+        const data = await getPositionsByTournamentId(id);
+        setPositions(data);
+        // console.log("Positions:", data);
+      } catch (error) {
+        console.error("Error fetching positions:", error);
+      }
+    };
+
+    fetchPositions();
+  }, [id, getPositionsByTournamentId]);
+
   const handleStartMatch = async (match: Match) => {
     try {
-       const updatedMatch = await updateMatch({ ...match, status: "in_progress" });
-        await createSet(updatedMatch.id);
+      const updatedMatch = await updateMatch({
+        ...match,
+        status: "in_progress",
+      });
+      await createSet(updatedMatch.id);
       setMatches((prevMatches: any) => {
         const groupId = updatedMatch.groupId!;
         const groupMatches = prevMatches[groupId] ?? [];
@@ -287,21 +312,25 @@ const TournamentDetails: React.FC = () => {
           title="Tabla de Posiciones"
           icon={<Trophy className="w-5 h-5 text-primary" />}
         >
-          {tournament.positions?.length ? (
+          {positions?.length ? (
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-700 text-text-secondary">
                   <th className="py-2 text-left">#</th>
                   <th className="py-2 text-left">Equipo</th>
                   <th className="py-2 text-center">PJ</th>
-                  <th className="py-2 text-center">G</th>
-                  <th className="py-2 text-center">E</th>
-                  <th className="py-2 text-center">P</th>
+                  <th className="py-2 text-center">PG</th>
+                  <th className="py-2 text-center">PE</th>
+                  <th className="py-2 text-center">PP</th>
+                  <th className="py-2 text-center">SF</th>
+                  <th className="py-2 text-center">SC</th>
+                  <th className="py-2 text-center">PF</th>
+                  <th className="py-2 text-center">PC</th>
                   <th className="py-2 text-center">Pts</th>
                 </tr>
               </thead>
               <tbody>
-                {tournament.positions.map((pos: any, index: number) => (
+                {positions.map((pos: any, index: number) => (
                   <tr
                     key={index}
                     className="border-b border-gray-800 hover:bg-gray-700/30"
@@ -312,6 +341,10 @@ const TournamentDetails: React.FC = () => {
                     <td className="py-2 text-center">{pos.wins}</td>
                     <td className="py-2 text-center">{pos.draws}</td>
                     <td className="py-2 text-center">{pos.losses}</td>
+                    <td className="py-2 text-center">{pos.setsWon}</td>
+                    <td className="py-2 text-center">{pos.setsLost}</td>
+                    <td className="py-2 text-center">{pos.pointsFor}</td>
+                    <td className="py-2 text-center">{pos.pointsAgainst}</td>
                     <td className="py-2 text-center font-bold text-primary">
                       {pos.points}
                     </td>
@@ -541,18 +574,22 @@ const TournamentDetails: React.FC = () => {
                                               Ir a Encuentro
                                             </button>
                                           </Link>
-                                          
                                         </div>
                                       );
                                     }
-                                    if(m.status === "finished" || m.status === "cancelled") return <div className="flex items-center gap-2">
+                                    if (
+                                      m.status === "finished" ||
+                                      m.status === "cancelled"
+                                    )
+                                      return (
+                                        <div className="flex items-center gap-2">
                                           <Link to={`/match/${m.id}`}>
                                             <button className="px-3 py-2 text-sm rounded-md bg-red-600 hover:bg-red-500 text-white">
                                               Ver Detalles
                                             </button>
                                           </Link>
-                                          
                                         </div>
+                                      );
 
                                     // === MODO NORMAL ===
                                     if (isFutureSaved) {
@@ -709,16 +746,18 @@ const TournamentDetails: React.FC = () => {
                       tournament.id,
                       2
                     );
-                    console.log(firstMatches);
+
                     setMatches(firstMatches);
                     // Refresca el torneo para mostrar los nuevos matches
                     const updated = await getTournamentById(tournament.id);
                     setTournament(updated);
                     setOpenDialog(true);
-                    console.log(updated);
+                    setDialogMessage(
+                      "Se han generado los encuentros dividos por grupos segun la cantidad de equipos registrados."
+                    );
                   } catch (err: any) {
                     console.error(err);
-                    alert(
+                    setDialogMessage(
                       "❌ No se pudo generar el sorteo. Revisa los equipos o el servidor."
                     );
                   } finally {

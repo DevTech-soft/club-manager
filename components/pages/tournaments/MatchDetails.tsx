@@ -3,18 +3,19 @@ import { useParams, useNavigate } from "react-router-dom";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button"; // o tu propio botón si no usas shadcn
 import { useData } from "@/context/DataContext";
-import { Match, MatchSet } from "@/types";
+import { Match, MatchSet, TournamentPosition } from "@/types";
 import { de, se } from "date-fns/locale";
 
 export default function MatchDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getMatchById, finishSet, updateSetScore, finishMatch } = useData();
+  const { getMatchById, finishSet, updateSetScore, finishMatch, getPositionsByTournamentId } = useData();
 
   const [match, setMatch] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [scores, setScores] = useState({ teamA: 0, teamB: 0 });
   const [sets, setSets] = useState<MatchSet[]>([]);
+  const [positions, setPositions] = useState<TournamentPosition[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -121,6 +122,13 @@ export default function MatchDetail() {
       winnerId: matchWinnerId,
     });
     console.log("✅ Encuentro finalizado:", finishedMatch);
+
+    // Actualizar posiciones del torneo
+    const updatedPositions = await getPositionsByTournamentId(match.tournamentId);
+    setPositions(updatedPositions);
+
+    // Redirigir a los detalles del torneo
+    navigate(`/tournaments/${match.tournamentId}`);
   };
 
   return (
@@ -143,7 +151,7 @@ export default function MatchDetail() {
         <div className="text-center mb-6">
           <p className="text-gray-400">{match.status === "in_progress" ? "Set Actual" : "Sets Finalizados"}</p>
           <h2 className="text-3xl font-semibold text-primary">
-            # {sets.filter((s) => s.status === "finished").length}
+            #  {match.status === "in_progress" ? sets.filter((s) => s.status === "finished").length +1 : sets.filter((s) => s.status === "finished").length}
           </h2>
         </div>
         {/* 🔢 Marcador */}
