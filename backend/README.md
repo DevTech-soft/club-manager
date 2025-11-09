@@ -1,76 +1,388 @@
+# 🏐 Volleyball Club Manager - Backend
 
-# Volleyball Club Manager - Backend
+API REST para el sistema de gestión de clubes de voleibol.
 
-Este backend está construido con Node.js, Express, TypeScript y Prisma ORM para conectarse a una base de datos PostgreSQL.
+## 📋 Descripción
 
-## Tech Stack
+Backend desarrollado con Node.js, Express y TypeScript que proporciona una API REST completa para la gestión de clubes de voleibol. Implementa autenticación JWT, manejo de torneos con sistema de grupos y seguimiento detallado de partidos.
 
-- **Runtime:** Node.js
-- **Framework:** Express.js
-- **Lenguaje:** TypeScript
-- **Database:** PostgreSQL
-- **ORM:** Prisma
-- **Validación:** (Opcional, se puede añadir `zod` o `joi`)
+## 🛠️ Tecnologías
 
-## Requisitos Previos
+- **Node.js** 18.x - Runtime JavaScript
+- **Express.js** 4.x - Framework web
+- **TypeScript** 5.x - Tipado estático
+- **Prisma ORM** 5.x - Object-Relational Mapping
+- **PostgreSQL** 14.x - Base de datos relacional
+- **JWT** - Autenticación y autorización
+- **bcrypt** - Hashing de contraseñas
+- **cookie-parser** - Manejo de cookies
+- **cors** - Cross-Origin Resource Sharing
 
-- Node.js (v16 o superior)
-- npm o yarn
-- Una instancia de PostgreSQL corriendo (localmente o en un servicio como Docker o Supabase).
+## 📁 Estructura
 
-## Configuración y Ejecución
+```
+backend/
+├── src/
+│   ├── config/              # Configuración
+│   │   ├── constants.ts     # Constantes JWT, cookies
+│   │   └── database.ts      # Cliente Prisma
+│   │
+│   ├── controllers/         # Controladores HTTP
+│   │   ├── auth.controller.ts
+│   │   ├── coaches.controller.ts
+│   │   ├── players.controller.ts
+│   │   ├── teams.controller.ts
+│   │   ├── attendances.controller.ts
+│   │   ├── tournaments.controller.ts
+│   │   ├── groups.controller.ts
+│   │   ├── matches.controller.ts
+│   │   └── settings.controller.ts
+│   │
+│   ├── services/            # Lógica de negocio
+│   │   ├── auth.service.ts
+│   │   ├── coaches.service.ts
+│   │   ├── players.service.ts
+│   │   ├── teams.service.ts
+│   │   ├── attendances.service.ts
+│   │   ├── tournaments.service.ts
+│   │   ├── groups.service.ts
+│   │   ├── matches.service.ts
+│   │   ├── sets.service.ts
+│   │   ├── positions.service.ts
+│   │   └── settings.service.ts
+│   │
+│   ├── routes/              # Definición de rutas
+│   │   ├── index.ts         # Router central
+│   │   ├── auth.routes.ts
+│   │   ├── coaches.routes.ts
+│   │   ├── players.routes.ts
+│   │   ├── teams.routes.ts
+│   │   ├── attendances.routes.ts
+│   │   ├── tournaments.routes.ts
+│   │   ├── groups.routes.ts
+│   │   ├── matches.routes.ts
+│   │   └── settings.routes.ts
+│   │
+│   ├── middlewares/         # Middlewares
+│   │   ├── auth.ts          # Autenticación JWT
+│   │   └── index.ts
+│   │
+│   ├── utils/               # Utilidades
+│   │   ├── mappers.ts       # Transformación de datos
+│   │   └── tournaments.ts   # Cálculo de grupos
+│   │
+│   └── server.ts            # Entry point
+│
+├── prisma/
+│   ├── schema.prisma        # Schema de BD
+│   └── migrations/          # Migraciones
+│
+├── package.json
+├── tsconfig.json
+└── .env
+```
 
-1.  **Navegar al directorio del backend:**
-    ```bash
-    cd backend
-    ```
+## 🏗️ Arquitectura
 
-2.  **Instalar Dependencias:**
-    ```bash
-    npm install
-    ```
+### Patrón de Capas
 
-3.  **Configurar Variables de Entorno:**
-    - Crea un archivo `.env` en la raíz del directorio `/backend`.
-    - Copia el contenido de `.env.example` en tu nuevo archivo `.env`.
-    - Modifica la variable `DATABASE_URL` con la cadena de conexión de tu base de datos PostgreSQL. El formato es: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public`
+```
+HTTP Request → Routes → Controllers → Services → Database
+                  ↓           ↓           ↓
+              Middlewares  Validation   Prisma
+```
 
-    Ejemplo de archivo `.env`:
-    ```
-    # URL de conexión de la base de datos PostgreSQL
-    DATABASE_URL="postgresql://user:password@localhost:5432/voley-club?schema=public"
+### Responsabilidades
 
-    # Puerto en el que correrá el servidor backend
-    PORT=3001
-    ```
+- **Routes**: Definición de endpoints y middlewares
+- **Controllers**: Manejo de HTTP (request/response)
+- **Services**: Lógica de negocio y reglas de dominio
+- **Prisma**: Acceso a datos y persistencia
 
-4.  **Ejecutar Migración de la Base de Datos:**
-    - Este comando creará las tablas en tu base de datos basándose en el `schema.prisma`.
-    ```bash
-    npx prisma migrate dev --name init
-    ```
-    - Después de la migración, es recomendable sembrar la base de datos con datos iniciales, especialmente para la configuración del club. Puedes crear un archivo `prisma/seed.ts` y ejecutar `npx prisma db seed`.
+## 🚀 Instalación
 
-5.  **Iniciar el Servidor de Desarrollo:**
-    - El servidor se ejecutará en el puerto definido en tu `.env` (por defecto `3001`) y se reiniciará automáticamente al detectar cambios.
-    ```bash
-    npm run dev
-    ```
+### Requisitos Previos
 
-6.  **(Opcional) Abrir Prisma Studio:**
-    - Prisma Studio es una interfaz gráfica para ver y editar los datos en tu base de datos.
-    ```bash
-    npx prisma studio
-    ```
+- Node.js >= 18.x
+- PostgreSQL >= 14.x
+- npm >= 9.x
 
-## Estructura del Proyecto
+### Pasos
 
-El proyecto sigue una estructura simplificada para facilitar el inicio:
+1. **Instalar dependencias**
+   ```bash
+   npm install
+   ```
 
--   `prisma/schema.prisma`: Define el esquema de la base de datos.
--   `src/server.ts`: Archivo principal que configura y ejecuta el servidor Express, y define todos los endpoints de la API.
--   `src/lib/prisma.ts`: Exporta una instancia singleton del cliente de Prisma.
+2. **Configurar variables de entorno**
 
-## API Endpoints Implementados
+   Crear archivo `.env`:
+   ```env
+   # Database
+   DATABASE_URL="postgresql://user:password@localhost:5432/volleyball_club"
 
-El archivo `src/server.ts` implementa todos los endpoints necesarios para que la aplicación frontend funcione, reemplazando la `mockApi`. Esto incluye operaciones CRUD para jugadores, equipos, asistencias y configuraciones del club.
+   # Server
+   PORT=3001
+
+   # JWT
+   JWT_SECRET="tu-secret-key-super-segura"
+   ```
+
+3. **Generar cliente Prisma**
+   ```bash
+   npx prisma generate
+   ```
+
+4. **Ejecutar migraciones**
+   ```bash
+   npx prisma migrate dev
+   ```
+
+5. **Iniciar servidor**
+   ```bash
+   npm run dev
+   ```
+
+## 📜 Scripts
+
+```bash
+npm run dev              # Servidor desarrollo (nodemon)
+npm run build            # Compilar TypeScript
+npm start                # Servidor producción
+npm run prisma:generate  # Generar cliente Prisma
+npm run prisma:migrate   # Ejecutar migraciones
+npm run prisma:studio    # Abrir Prisma Studio
+npm run prisma:seed      # Sembrar datos
+```
+
+## 🔌 API Endpoints
+
+### Auth
+- `POST /api/auth/login` - Iniciar sesión
+- `POST /api/auth/logout` - Cerrar sesión
+- `POST /api/auth/refresh` - Refrescar token
+- `GET /api/auth/me` - Usuario actual
+
+### Players
+- `GET /api/players` - Listar jugadores
+- `GET /api/players/:id` - Obtener jugador
+- `GET /api/players/document/:doc` - Buscar por documento
+- `POST /api/players` - Crear jugador
+- `PUT /api/players/:id` - Actualizar jugador
+- `DELETE /api/players/:id` - Eliminar jugador
+- `POST /api/players/:id/payment` - Registrar pago
+
+### Teams
+- CRUD completo de equipos
+
+### Tournaments
+- CRUD completo de torneos
+- `GET /api/tournaments/:id/positions` - Tabla de posiciones
+
+### Matches
+- `GET /api/matches?tournamentId=xxx` - Listar partidos
+- `POST /api/matches` - Generar partidos (round-robin)
+- `POST /api/matches/groups` - Generar grupos y partidos
+- `PATCH /api/matches/:id/finish` - Finalizar partido
+- `POST /api/matches/:matchId/sets` - Crear set
+- `POST /api/matches/:matchId/sets/:setId/finish` - Finalizar set
+- `PATCH /api/matches/:matchId/sets/:setId` - Actualizar puntos
+
+### Otros
+- Coaches, Attendances, Groups, Settings
+
+Ver documentación completa en README principal.
+
+## 🔐 Autenticación
+
+### JWT con Cookies
+
+```typescript
+// Access Token: 15 minutos
+// Refresh Token: 7 días
+
+// Almacenados en cookies HTTP-only
+{
+  httpOnly: true,
+  secure: true,
+  sameSite: 'strict'
+}
+```
+
+### Credenciales por defecto
+
+**Admin:**
+- User: `admin`
+- Pass: `password`
+
+**Superadmin:**
+- User: `superadmin`
+- Pass: `superpassword`
+
+## 🗄️ Base de Datos
+
+### Modelos Principales
+
+```prisma
+model Player {
+  id            String
+  name          String
+  document      String @unique
+  position      Position
+  subCategory   SubCategory
+  teams         Team[]
+  statsHistory  StatsRecord[]
+  attendances   Attendance[]
+}
+
+model Team {
+  id            String
+  name          String
+  mainCategory  MainCategory
+  subCategory   SubCategory
+  players       Player[]
+  tournamentTeams TournamentTeam[]
+}
+
+model Tournament {
+  id              String
+  name            String
+  category        String
+  type            TournamentType
+  registeredTeams TournamentTeam[]
+  groups          Group[]
+}
+
+model Match {
+  id            String
+  tournament    Tournament
+  group         Group
+  teamA         TournamentTeam
+  teamB         TournamentTeam
+  sets          MatchSet[]
+  status        MatchStatus
+  winnerId      String?
+}
+```
+
+### Migraciones
+
+```bash
+# Crear migración
+npx prisma migrate dev --name add_new_field
+
+# Aplicar migraciones
+npx prisma migrate deploy
+
+# Reset BD (desarrollo)
+npx prisma migrate reset
+```
+
+## 🧪 Testing
+
+```bash
+npm run test              # Ejecutar tests
+npm run test:watch        # Tests en modo watch
+npm run test:coverage     # Cobertura de tests
+```
+
+## 📊 Monitoreo
+
+### Prisma Studio
+
+```bash
+npx prisma studio
+# Abre en http://localhost:5555
+```
+
+### Logs
+
+Los logs se manejan con `console.log` en desarrollo.
+
+Para producción, considerar:
+- Winston
+- Morgan
+- Pino
+
+## 🔧 Configuración
+
+### CORS
+
+Configurado en `src/server.ts`:
+
+```typescript
+app.use(cors());
+```
+
+Para producción, especificar orígenes permitidos:
+
+```typescript
+app.use(cors({
+  origin: 'https://tu-dominio.com',
+  credentials: true
+}));
+```
+
+### Rate Limiting
+
+Considerar implementar rate limiting para producción:
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100 // límite por IP
+});
+
+app.use('/api/', limiter);
+```
+
+## 🚀 Despliegue
+
+### Heroku
+
+```bash
+# Agregar addon PostgreSQL
+heroku addons:create heroku-postgresql:hobby-dev
+
+# Deploy
+git push heroku main
+
+# Ejecutar migraciones
+heroku run npx prisma migrate deploy
+```
+
+### Railway
+
+1. Conectar repositorio
+2. Agregar PostgreSQL addon
+3. Configurar variables de entorno
+4. Deploy automático
+
+### Render
+
+1. Crear Web Service
+2. Agregar PostgreSQL
+3. Build Command: `npm install && npx prisma generate && npm run build`
+4. Start Command: `npm start`
+
+## 📝 Mejoras Futuras
+
+- [ ] Validación de inputs con Zod
+- [ ] Rate limiting
+- [ ] Logs estructurados (Winston/Pino)
+- [ ] Tests unitarios e integración
+- [ ] Documentación con Swagger
+- [ ] Health check endpoint
+- [ ] Métricas con Prometheus
+- [ ] Cache con Redis
+
+## 👥 Contribución
+
+Ver guía de contribución en README principal.
+
+---
+
+**API URL (dev):** http://localhost:3001
+**Prisma Studio:** http://localhost:5555
