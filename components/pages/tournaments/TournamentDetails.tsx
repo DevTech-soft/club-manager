@@ -1,6 +1,7 @@
 // src/pages/TournamentDetails.tsx
 import Button from "@/components/ui/Button";
 import ModalDialog from "@/components/ui/Dialog";
+import TournamentLoader from "@/components/ui/Loader";
 import { useData } from "@/context/DataContext";
 import {
   Match,
@@ -786,6 +787,7 @@ const TournamentDetails: React.FC = () => {
           <p>{dialogMessage}</p>
         </ModalDialog>
       )}
+      {loading && <TournamentLoader loading={loading} />}
     </div>
   );
 };

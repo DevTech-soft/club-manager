@@ -4,7 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { prisma } from './lib/prisma';
 import type { Player, Team, Attendance, ClubSettings, PlayerCreationData, CoachCreationData, TournamentCreationData } from './types';
-import { Prisma } from '@prisma/client';
+import { calcularGruposAuto } from './uitls/tournaments_services';
 
 
 dotenv.config();
@@ -828,70 +828,75 @@ app.post("/api/matches", async (req: Request, res: Response, next: NextFunction)
 
 
 app.post("/api/matches/groups", async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { tournamentId, groupsCount = 2 } = req.body;
-        if (!tournamentId) return res.status(400).json({ error: "tournamentId required" });
+  try {
+    const { tournamentId } = req.body;
+    if (!tournamentId) return res.status(400).json({ error: "tournamentId required" });
 
-        const teams = await prisma.tournamentTeam.findMany({ where: { tournamentId } });
-        if (teams.length < 2) return res.status(400).json({ error: "At least 2 teams required" });
-        if (groupsCount < 1) return res.status(400).json({ error: "groupsCount must be > 0" });
+    const teams = await prisma.tournamentTeam.findMany({ where: { tournamentId } });
+    if (teams.length < 2)
+      return res.status(400).json({ error: "At least 2 teams required" });
 
-        // Mezclar equipos aleatoriamente
-        const shuffled = [...teams].sort(() => Math.random() - 0.5);
+    // === CÁLCULO AUTOMÁTICO DE GRUPOS ===
+    const groupsCount = calcularGruposAuto(teams.length);
 
-        // Dividir equipos en grupos
-        const groups: any[] = Array.from({ length: groupsCount }, () => []);
-        shuffled.forEach((team, i) => {
-            groups[i % groupsCount].push(team);
+    // Mezclar equipos aleatoriamente
+    const shuffled = [...teams].sort(() => Math.random() - 0.5);
+
+    // Crear arreglo de grupos vacíos
+    const groups: any[] = Array.from({ length: groupsCount }, () => []);
+
+    // Distribuir equipos de forma balanceada (round robin style)
+    shuffled.forEach((team, i) => {
+      groups[i % groupsCount].push(team);
+    });
+
+    // Transacción: crear grupos y encuentros
+    const createdGroups = await prisma.$transaction(async (tx) => {
+      const groupRecords = [];
+      const matchRecords = [];
+
+      for (let g = 0; g < groups.length; g++) {
+        const groupName = `Grupo ${String.fromCharCode(65 + g)}`; // A, B, C...
+        const group = await tx.tournamentGroup.create({
+          data: { tournamentId, name: groupName },
         });
+        groupRecords.push(group);
 
-        const createdGroups = await prisma.$transaction(async (tx) => {
-            const groupRecords = [];
-            const matchRecords = [];
+        // Asignar equipos a grupo
+        for (const team of groups[g]) {
+          await tx.tournamentTeam.update({
+            where: { id: team.id },
+            data: { groupId: group.id },
+          });
+        }
 
-            for (let g = 0; g < groups.length; g++) {
-                const groupName = `Grupo ${String.fromCharCode(65 + g)}`; // A, B, C...
-                const group = await tx.tournamentGroup.create({
-                    data: { tournamentId, name: groupName },
-                });
-                groupRecords.push(group);
+        // Generar los enfrentamientos (round robin)
+        for (let i = 0; i < groups[g].length; i++) {
+          for (let j = i + 1; j < groups[g].length; j++) {
+            matchRecords.push({
+              tournamentId,
+              groupId: group.id,
+              teamAId: groups[g][i].id,
+              teamBId: groups[g][j].id,
+              sportType: "volleyball",
+              status: "pending",
+            });
+          }
+        }
+      }
 
-                // Asignar equipos a este grupo
-                for (const team of groups[g]) {
-                    await tx.tournamentTeam.update({
-                        where: { id: team.id },
-                        data: { groupId: group.id },
-                    });
-                }
+      await tx.match.createMany({ data: matchRecords, skipDuplicates: true });
 
-                // Generar encuentros internos (round robin)
-                for (let i = 0; i < groups[g].length; i++) {
-                    for (let j = i + 1; j < groups[g].length; j++) {
-                        matchRecords.push({
-                            tournamentId,
-                            groupId: group.id,
-                            teamAId: groups[g][i].id,
-                            teamBId: groups[g][j].id,
-                            sportType: "volleyball",
-                            status: "pending",
-                        });
-                    }
-                }
-            }
+      return { groups: groupRecords, matches: matchRecords.length };
+    });
 
-            // Crear todos los matches a la vez
-            await tx.match.createMany({ data: matchRecords, skipDuplicates: true });
-
-            return { groups: groupRecords, matches: matchRecords.length };
-        });
-
-        res.status(201).json({
-            message: `Se generaron ${createdGroups.groups.length} grupos y ${createdGroups.matches} encuentros.`,
-        });
-    } catch (error) {
-        next(error);
-    }
-});
+    res.status(201).json({
+      message: `✅ Se generaron automáticamente ${createdGroups.groups.length} grupos y ${createdGroups.matches} encuentros.`,
+    });
+  } catch (error) {
+    next(error);
+  }
+})
 
 
 app.get("/api/matches", async (req, res, next) => {
