@@ -9,7 +9,7 @@ interface SuperAdminRouteProps {
 const SuperAdminRoute: React.FC<SuperAdminRouteProps> = ({ children }) => {
   const { isAuthenticated, userType } = useAuth();
 
-  if (!isAuthenticated || userType !== 'superAdmin') {
+  if (!isAuthenticated || userType !== 'superadmin') {
     return <Navigate to="/dashboard" replace />;
   }
 

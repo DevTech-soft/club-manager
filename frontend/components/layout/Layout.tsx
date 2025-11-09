@@ -12,7 +12,7 @@ const Layout: React.FC = () => {
   const params = useParams();
   const { players } = useData();
   const { clubSettings } = useClub();
-  const { coachInfo } = useAuth();
+  const { coachInfo, userType } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
 
   // Close sidebar on navigation on mobile devices
@@ -102,7 +102,7 @@ const Layout: React.FC = () => {
               <h1 className="text-lg font-bold text-text-primary whitespace-nowrap">
                 {coachInfo
                   ? `${coachInfo.firstName} ${coachInfo.lastName}`
-                  : 'Admin'}
+                  : `${userType}`}
               </h1>
               <p className="text-sm text-text-secondary">
                 {coachInfo ? 'Entrenador' : ''}

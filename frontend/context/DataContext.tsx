@@ -19,9 +19,10 @@ import {
   TournamentGroup,
   MatchSet,
   FinishSetResponse,
+  TournamentPosition,
 } from "../types";
 import { api } from "../services/api";
-import { TournamentPosition } from "@/backend/src/types";
+
 
 interface DataContextType {
   players: Player[];
@@ -97,7 +98,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
       setAttendances(attendancesData);
       setCoaches(coachesData);
       setTournaments(tournamentsData);
-      // console.log("Data fetched in background", tournamentsData);
+      // console.log("Data fetched in background", playersData);
     } catch (error) {
       console.error("Failed to fetch data in background", error);
     } finally {

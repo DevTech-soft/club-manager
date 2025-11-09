@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, ReactNode, useEffect, useCa
 import { api, LoginResponse } from '../services/api';
 import { Coach } from '../types';
 
-type UserType = 'admin' | 'superAdmin' | 'coach' | null;
+type UserType = 'admin' | 'superadmin' | 'coach' | null;
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const getInitialUserType = (): UserType => {
   const savedUserType = localStorage.getItem('userType');
   // Ensure the saved user type is one of the allowed values before using it.
-  if (savedUserType && ['admin', 'superAdmin', 'coach'].includes(savedUserType)) {
+  if (savedUserType && ['admin', 'superadmin', 'coach'].includes(savedUserType)) {
       return savedUserType as UserType;
   }
   return null;

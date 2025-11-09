@@ -5,7 +5,7 @@ export interface NavLink {
   href: string;
   label: string;
   icon: React.ReactNode;
-  roles?: ('admin' | 'superAdmin' | 'coach')[];
+  roles?: ('admin' | 'superadmin' | 'coach')[];
 }
 
 export const NAV_LINKS: NavLink[] = [
@@ -38,19 +38,19 @@ export const NAV_LINKS: NavLink[] = [
     href: '/coaches',
     label: 'Entrenadores',
     icon: <i data-lucide="contact" className="w-5 h-5"></i>,
-    roles: ['admin', 'superAdmin']
+    roles: ['admin', 'superadmin']
   },
   {
     href: '/tournament',
     label: 'Torneos',
     icon: <i data-lucide="award" className="w-5 h-5"></i>,
-    roles: ['admin', 'superAdmin']
+    roles: ['admin', 'superadmin']
   },
   
   {
     href: '/superadmin',
     label: 'Configuración',
     icon: <i data-lucide="settings" className="w-5 h-5"></i>,
-    roles: ['superAdmin']
+    roles: ['superadmin']
   },
 ];

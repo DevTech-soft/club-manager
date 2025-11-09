@@ -1,7 +1,7 @@
 
 
-import { FinishSetResponse } from '@/backend/src/types';
-import { Player, Team, Attendance, ClubSettings, PlayerCreationData, Coach, CoachCreationData, Tournament, TournamentCreationData, Match, MatchCreationData, GenerateMatchesRequest, TournamentGroup, MatchSet } from '../types';
+
+import { Player, Team, Attendance, ClubSettings, PlayerCreationData, Coach, CoachCreationData, Tournament, TournamentCreationData, Match, TournamentGroup, MatchSet, FinishSetResponse } from '../types';
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
@@ -16,7 +16,7 @@ const handleResponse = async (response: Response) => {
 
 export type LoginResponse = {
   success: boolean;
-  userType: 'admin' | 'superAdmin' | 'coach' | null;
+  userType: 'admin' | 'superadmin' | 'coach' | null;
   coachInfo?: Coach;
 };
 
@@ -208,7 +208,7 @@ export const api = {
     return fetch(`${API_BASE_URL}/tournaments/${tournamentId}/positions`).then(handleResponse);
   },
 
-  
+
 
   updateMatch: async (matchData: Match): Promise<Match> => {
     const response = await fetch(`${API_BASE_URL}/matches/${matchData.id}`, {
