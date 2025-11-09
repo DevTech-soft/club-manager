@@ -22,6 +22,7 @@ import {
   TournamentPosition,
 } from "../types";
 import { api } from "../services/api";
+import { FinishSetRequest, UpdateSetScoreRequest } from "@/services/api.types";
 
 
 interface DataContextType {
@@ -56,8 +57,8 @@ interface DataContextType {
   updateMatch: (matchData: Match) => Promise<Match>;
   getMatchById: (matchId: string) => Promise<Match | undefined>;
   createSet: (matchId: string) => Promise<MatchSet>;
-  finishSet: (matchId: string, setId: string, teamAPoints: number, teamBPoints: number, winnerSet: string) => Promise<FinishSetResponse>;
-  updateSetScore: (matchId: string, setId: string, teamAPoints: number, teamBPoints: number) => Promise<MatchSet>;
+  finishSet: (matchId: string, setId: string, data: FinishSetRequest) => Promise<FinishSetResponse>;
+  updateSetScore: (matchId: string, setId: string, data: UpdateSetScoreRequest) => Promise<MatchSet>;
   finishMatch: (matchId: string, data: { status: string; winnerId: string }) => Promise<Match>;
   getPositionsByTournamentId: (tournamentId: string) => Promise<TournamentPosition[]>;
 
@@ -112,23 +113,38 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
   const createTeam = async (
     teamData: Omit<Team, "id" | "coach">
   ): Promise<Team> => {
-    const newTeam = await api.createTeam(teamData);
-    await fetchData(); // Refetch all data to ensure consistency across users
-    return newTeam;
+    try {
+      const newTeam = await api.createTeam(teamData);
+      setTeams((prev) => [...prev, newTeam]); // Update local state only
+      return newTeam;
+    } catch (error) {
+      console.error("Failed to create team:", error);
+      throw error; // Re-throw so components can handle with toast
+    }
   };
 
   const createPlayer = async (
     playerData: PlayerCreationData
   ): Promise<Player> => {
-    const newPlayer = await api.createPlayer(playerData);
-    await fetchData(); // Refetch all data to ensure consistency
-    return newPlayer;
+    try {
+      const newPlayer = await api.createPlayer(playerData);
+      setPlayers((prev) => [...prev, newPlayer]); // Update local state only
+      return newPlayer;
+    } catch (error) {
+      console.error("Failed to create player:", error);
+      throw error; // Re-throw so components can handle with toast
+    }
   };
 
   const createCoach = async (coachData: CoachCreationData): Promise<Coach> => {
-    const newCoach = await api.createCoach(coachData);
-    await fetchData(); // Refetch all data to ensure consistency
-    return newCoach;
+    try {
+      const newCoach = await api.createCoach(coachData);
+      setCoaches((prev) => [...prev, newCoach]); // Update local state only
+      return newCoach;
+    } catch (error) {
+      console.error("Failed to create coach:", error);
+      throw error; // Re-throw so components can handle with toast
+    }
   };
 
   const recordAttendance = async (
@@ -164,40 +180,78 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const updatePlayer = async (playerData: Player) => {
-    await api.updatePlayer(playerData);
-    await fetchData(); // Refetch to get the canonical state from the server.
+    try {
+      await api.updatePlayer(playerData);
+      setPlayers((prev) =>
+        prev.map((player) => player.id === playerData.id ? playerData : player)
+      ); // Update only the specific player
+    } catch (error) {
+      console.error("Failed to update player:", error);
+      throw error; // Re-throw so components can handle with toast
+    }
   };
 
   const updateTeam = async (teamData: Team) => {
-    await api.updateTeam(teamData);
-    await fetchData(); // Refetch to get the canonical state.
+    try {
+      await api.updateTeam(teamData);
+      setTeams((prev) =>
+        prev.map((team) => team.id === teamData.id ? teamData : team)
+      ); // Update only the specific team
+    } catch (error) {
+      console.error("Failed to update team:", error);
+      throw error; // Re-throw so components can handle with toast
+    }
   };
 
   const recordPlayerPayment = async (playerId: string) => {
-    await api.recordPlayerPayment(playerId);
-    await fetchData(); // Refetch to update payment status for all.
+    try {
+      const updatedPlayer = await api.recordPlayerPayment(playerId);
+      setPlayers((prev) =>
+        prev.map((player) => player.id === playerId ? updatedPlayer : player)
+      ); // Update only the specific player's payment status
+    } catch (error) {
+      console.error("Failed to record payment:", error);
+      throw error; // Re-throw so components can handle with toast
+    }
   };
 
   const createTournament = async (tournamentData: TournamentCreationData) => {
-    const newTournament = await api.createTournament(tournamentData);
-    await fetchData(); // Refetch to ensure consistency across users
-    return newTournament;
+    try {
+      const newTournament = await api.createTournament(tournamentData);
+      setTournaments((prev) => [...prev, newTournament]); // Update local state only
+      return newTournament;
+    } catch (error) {
+      console.error("Failed to create tournament:", error);
+      throw error; // Re-throw so components can handle with toast
+    }
   };
 
   const getTournamentById = async (tournamentId: string) => {
     const tournament = await api.getTournamentById(tournamentId);
-    await fetchData();
+    // No need to refetch all data for a read operation
     return tournament;
   };
 
   const updateTournament = async (tournamentData: Tournament) => {
-    await api.updateTournament(tournamentData);
-    await fetchData(); // Refetch to get the canonical state.
+    try {
+      await api.updateTournament(tournamentData);
+      setTournaments((prev) =>
+        prev.map((tournament) => tournament.id === tournamentData.id ? tournamentData : tournament)
+      ); // Update only the specific tournament
+    } catch (error) {
+      console.error("Failed to update tournament:", error);
+      throw error; // Re-throw so components can handle with toast
+    }
   };
 
   const deleteTournament = async (tournamentId: string) => {
-    await api.deleteTournament(tournamentId);
-    await fetchData(); // Refetch to remove the tournament from the state.
+    try {
+      await api.deleteTournament(tournamentId);
+      setTournaments((prev) => prev.filter((tournament) => tournament.id !== tournamentId)); // Remove from local state only
+    } catch (error) {
+      console.error("Failed to delete tournament:", error);
+      throw error; // Re-throw so components can handle with toast
+    }
   };
 
   const generateMatches = async (tournamentId: string) => {
@@ -206,13 +260,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const deletePlayer = async (playerId: string) => {
-    await api.deletePlayer(playerId);
-    await fetchData(); // Refetch to remove the player from the state.
+    try {
+      await api.deletePlayer(playerId);
+      setPlayers((prev) => prev.filter((player) => player.id !== playerId)); // Remove from local state only
+    } catch (error) {
+      console.error("Failed to delete player:", error);
+      throw error; // Re-throw so components can handle with toast
+    }
   };
 
   const getMatchesByTournamentId = async (tournamentId: string) => {
     const matches = await api.getMatchesByTournamentId(tournamentId);
-    await fetchData();
+    // No need to refetch all data for a read operation
     return matches;
   };
 
@@ -223,56 +282,55 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
 
   const getGroupsByTournamentId = async (tournamentId: string) => {
     const groups = await api.getGroupsByTournamentId(tournamentId);
-    await fetchData();
+    // No need to refetch all data for a read operation
     return groups;
   };
 
   const getMatchesByGroupId = async (groupId: string) => {
     const matches = await api.getMatchesByGroupId(groupId);
-    await fetchData();
+    // No need to refetch all data for a read operation
     return matches;
   };
 
   const updateMatch = async (matchData: Match) => {
     const updatedMatch = await api.updateMatch(matchData);
-    await fetchData(); // Refetch to get the canonical state.
+    // Match updates don't affect our main state collections
     return updatedMatch;
-    
   };
 
   const getMatchById = async (matchId: string) => {
     const match = await api.getMatchById(matchId);
-    await fetchData();
+    // No need to refetch all data for a read operation
     return match;
   }
 
   const finishMatch = async (matchId: string, data: { status: string; winnerId: string }) => {
     const updatedMatch = await api.finishMatch(matchId, data);
-    await fetchData(); // Refetch to get the canonical state.
+    // Match updates don't affect our main state collections
     return updatedMatch;
   };
 
   const createSet = async (matchId: string) => {
     const newSet = await api.createSet(matchId);
-    await fetchData(); // Refetch to get the canonical state.
+    // Set operations don't affect our main state collections
     return newSet;
   }
 
-  const finishSet = async (matchId: string, setId: string, teamAPoints: number, teamBPoints: number, winnerSet: string) => {
-    const updatedSet = await api.finishSet(matchId, setId, teamAPoints, teamBPoints, winnerSet);
-    await fetchData(); // Refetch to get the canonical state.
+  const finishSet = async (matchId: string, setId: string, data: FinishSetRequest) => {
+    const updatedSet = await api.finishSet(matchId, setId,  data);
+    // Set operations don't affect our main state collections
     return updatedSet;
   };
 
-  const updateSetScore = async (matchId: string, setId: string, teamAPoints: number, teamBPoints: number) => {
-    const updatedSet = await api.updateSetScore(matchId, setId, teamAPoints, teamBPoints);
-    await fetchData(); // Refetch to get the canonical state.
+  const updateSetScore = async (matchId: string, setId: string, data: UpdateSetScoreRequest) => {
+    const updatedSet = await api.updateSetScore(matchId, setId, data);
+    // Set operations don't affect our main state collections
     return updatedSet;
   };
 
   const getPositionsByTournamentId = async (tournamentId: string) => {
     const positions = await api.getPositionsByTournamentId(tournamentId);
-    await fetchData();
+    // No need to refetch all data for a read operation
     return positions;
   }
 
@@ -282,12 +340,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Set up polling to refetch data periodically for real-time synchronization.
+  // Set up smart polling to refetch data periodically for synchronization across users.
+  // Only polls when document is visible to save resources.
   useEffect(() => {
-    const pollingInterval = 15000; // Poll every 15 seconds for near real-time updates.
-    const intervalId = setInterval(() => {
-      fetchData();
-    }, pollingInterval);
+    const pollingInterval = 30000; // Poll every 30 seconds (reduced from 15s for better performance)
+
+    const pollIfVisible = () => {
+      // Only fetch if the page is visible to the user
+      if (document.visibilityState === 'visible') {
+        fetchData();
+      }
+    };
+
+    const intervalId = setInterval(pollIfVisible, pollingInterval);
 
     return () => clearInterval(intervalId); // Clean up interval on component unmount.
   }, [fetchData]);

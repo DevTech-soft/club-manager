@@ -14,7 +14,7 @@ async function main() {
     const player = await prisma.player.upsert({
       where: { document: jugador.document },
       update: {
-        avatarUrl: jugador.avatarUrl ?? "https://fastly.picsum.photos/id/701/100/100.jpg?hmac=DkM2I14mP1yUemn4HWIV6ZAW3IwzkrscRdDnx5k3WBw",
+        avatarUrl: jugador.avatarUrl !== "" ? jugador.avatarUrl : "https://fastly.picsum.photos/id/701/100/100.jpg?hmac=DkM2I14mP1yUemn4HWIV6ZAW3IwzkrscRdDnx5k3WBw",
       },
       create: {
         name: jugador.name,
@@ -23,7 +23,7 @@ async function main() {
         phone: jugador.phone,
         joinDate: new Date(jugador.joinDate),
         birthDate: new Date(jugador.birthDate),
-        avatarUrl: jugador.avatarUrl ?? "",
+        avatarUrl: jugador.avatarUrl ?? "https://fastly.picsum.photos/id/701/100/100.jpg?hmac=DkM2I14mP1yUemn4HWIV6ZAW3IwzkrscRdDnx5k3WBw",
         mainCategories: jugador.mainCategories,
         subCategory: jugador.subCategory,
         position: jugador.position,

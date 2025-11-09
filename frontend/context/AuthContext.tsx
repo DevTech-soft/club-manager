@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { api, LoginResponse } from '../services/api';
 import { Coach } from '../types';
@@ -10,7 +9,7 @@ interface AuthContextType {
   userType: UserType;
   coachInfo: Coach | null;
   login: (user: string, pass: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -44,6 +43,7 @@ const getInitialCoachInfo = (): Coach | null => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Initialize state from localStorage to persist session across page reloads.
+  // NOTA: Los tokens JWT están en httpOnly cookies, no en localStorage
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
       // Check for a consistent auth state. Both items should exist for a valid session.
       return localStorage.getItem('isAuthenticated') === 'true' && !!localStorage.getItem('userType');
@@ -51,27 +51,71 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [userType, setUserType] = useState<UserType>(getInitialUserType);
   const [coachInfo, setCoachInfo] = useState<Coach | null>(getInitialCoachInfo);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isVerifyingSession, setIsVerifyingSession] = useState<boolean>(true);
 
   // Centralized logout function to clear both state and localStorage.
-  const logout = useCallback(() => {
-    setIsAuthenticated(false);
-    setUserType(null);
-    setCoachInfo(null);
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('userType');
-    localStorage.removeItem('coachInfo');
+  const logout = useCallback(async () => {
+    try {
+      // Llamar al endpoint de logout para limpiar las cookies httpOnly en el servidor
+      await api.logout();
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Continuar con el logout local incluso si falla el servidor
+    } finally {
+      // Limpiar estado local
+      setIsAuthenticated(false);
+      setUserType(null);
+      setCoachInfo(null);
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('userType');
+      localStorage.removeItem('coachInfo');
+    }
+  }, []);
+
+  /**
+   * Verificar si la sesión es válida al cargar la aplicación
+   * Usa el endpoint /auth/me que valida el accessToken en la cookie
+   */
+  const verifySession = useCallback(async () => {
+    // Solo verificar si el localStorage indica que estamos autenticados
+    const savedAuth = localStorage.getItem('isAuthenticated') === 'true';
+
+    if (!savedAuth) {
+      setIsVerifyingSession(false);
+      return;
+    }
+
+    try {
+      // Verificar con el servidor si la sesión es válida
+      await api.me();
+      // Si llegamos aquí, la sesión es válida
+      setIsAuthenticated(true);
+    } catch (error: any) {
+      console.error("Session verification failed:", error);
+      // Si falla, hacer logout local
+      setIsAuthenticated(false);
+      setUserType(null);
+      setCoachInfo(null);
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('userType');
+      localStorage.removeItem('coachInfo');
+    } finally {
+      setIsVerifyingSession(false);
+    }
   }, []);
 
   const login = async (user: string, pass: string): Promise<boolean> => {
     setIsLoading(true);
     try {
       const response: LoginResponse = await api.login(user, pass);
+
       if (response.success) {
-        // Set state for the current session
+        // Los tokens están en httpOnly cookies (manejadas automáticamente por el navegador)
+        // Solo guardamos datos no sensibles en localStorage
         setIsAuthenticated(true);
         setUserType(response.userType);
-        
-        // Persist state in localStorage
+
+        // Persist state in localStorage (solo datos no sensibles)
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('userType', response.userType as string);
 
@@ -82,19 +126,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setCoachInfo(null);
           localStorage.removeItem('coachInfo');
         }
+
         return true;
       }
+
       // If login is not successful, ensure we are logged out.
-      logout();
+      await logout();
       return false;
     } catch (error) {
       console.error("Login failed:", error);
-      logout(); // Ensure we are logged out on API error.
+      await logout(); // Ensure we are logged out on API error.
       return false;
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Verificar la sesión al montar el componente
+  useEffect(() => {
+    verifySession();
+  }, [verifySession]);
+
+  // Escuchar evento de sesión expirada disparado por apiClient
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      console.log('Session expired, logging out...');
+      logout();
+    };
+
+    window.addEventListener('auth:session-expired', handleSessionExpired);
+
+    return () => {
+      window.removeEventListener('auth:session-expired', handleSessionExpired);
+    };
+  }, [logout]);
 
   // Listen for storage changes to sync logout across tabs.
   useEffect(() => {
@@ -113,6 +178,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       window.removeEventListener('storage', handleStorageChange);
     };
   }, [logout]); // The effect depends on the `logout` function.
+
+  // Mientras verificamos la sesión, mostrar loading
+  if (isVerifyingSession) {
+    return null; // O un componente de loading
+  }
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, userType, coachInfo, login, logout, isLoading }}>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Integration Tests</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #f0f0f0;
+        }
+        h1 {
+            color: #4fc3f7;
+            text-align: center;
+        }
+        .test-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #4fc3f7;
+        }
+        .test-section h2 {
+            color: #4fc3f7;
+            margin-top: 0;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        .test-result.success {
+            background: #1b5e20;
+            border-left: 4px solid #4caf50;
+        }
+        .test-result.error {
+            background: #b71c1c;
+            border-left: 4px solid #f44336;
+        }
+        .test-result.info {
+            background: #0d47a1;
+            border-left: 4px solid #2196f3;
+        }
+        .summary {
+            background: #424242;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1.2em;
+        }
+        .summary .passed {
+            color: #4caf50;
+        }
+        .summary .failed {
+            color: #f44336;
+        }
+        button {
+            background: #4fc3f7;
+            color: #1a1a1a;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: block;
+            margin: 20px auto;
+        }
+        button:hover {
+            background: #29b6f6;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .loader {
+            border: 4px solid #2a2a2a;
+            border-top: 4px solid #4fc3f7;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loader.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 API Refactorización - Tests de Integración</h1>
+
+    <button id="runTests">Ejecutar Tests</button>
+    <div class="loader" id="loader"></div>
+
+    <div id="results"></div>
+
+    <div id="summary" class="summary" style="display: none;">
+        <div>Tests completados:</div>
+        <div><span class="passed" id="passedCount">0</span> Exitosos | <span class="failed" id="failedCount">0</span> Fallidos</div>
+    </div>
+
+    <script type="module">
+        import { api } from './api.js';
+
+        const results = document.getElementById('results');
+        const loader = document.getElementById('loader');
+        const runTestsButton = document.getElementById('runTests');
+        const summary = document.getElementById('summary');
+        let passed = 0;
+        let failed = 0;
+
+        function addResult(section, message, type) {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.textContent = message;
+            section.appendChild(resultDiv);
+        }
+
+        function createSection(title) {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            const heading = document.createElement('h2');
+            heading.textContent = title;
+            section.appendChild(heading);
+            results.appendChild(section);
+            return section;
+        }
+
+        async function runTests() {
+            results.innerHTML = '';
+            passed = 0;
+            failed = 0;
+            loader.classList.add('active');
+            runTestsButton.disabled = true;
+            summary.style.display = 'none';
+
+            try {
+                // ==================== PLAYERS ====================
+                const playersSection = createSection('🏐 Players API');
+
+                try {
+                    const players = await api.getPlayers();
+                    addResult(playersSection, `✓ getPlayers() - ${players.length} jugadores encontrados`, 'success');
+                    passed++;
+
+                    if (players.length > 0) {
+                        const player = await api.getPlayerById(players[0].id);
+                        addResult(playersSection, `✓ getPlayerById() - Jugador: ${player.name}`, 'success');
+                        passed++;
+
+                        const attendances = await api.getPlayerAttendances(players[0].id);
+                        addResult(playersSection, `✓ getPlayerAttendances() - ${attendances.length} registros`, 'success');
+                        passed++;
+                    }
+                } catch (error) {
+                    addResult(playersSection, `✗ Error: ${error.message}`, 'error');
+                    failed++;
+                }
+
+                // ==================== TEAMS ====================
+                const teamsSection = createSection('👥 Teams API');
+
+                try {
+                    const teams = await api.getTeams();
+                    addResult(teamsSection, `✓ getTeams() - ${teams.length} equipos encontrados`, 'success');
+                    passed++;
+                } catch (error) {
+                    addResult(teamsSection, `✗ Error: ${error.message}`, 'error');
+                    failed++;
+                }
+
+                // ==================== ATTENDANCES ====================
+                const attendancesSection = createSection('📋 Attendances API');
+
+                try {
+                    const attendances = await api.getAttendances();
+                    addResult(attendancesSection, `✓ getAttendances() - ${attendances.length} registros encontrados`, 'success');
+                    passed++;
+                } catch (error) {
+                    addResult(attendancesSection, `✗ Error: ${error.message}`, 'error');
+                    failed++;
+                }
+
+                // ==================== COACHES ====================
+                const coachesSection = createSection('🎯 Coaches API');
+
+                try {
+                    const coaches = await api.getCoaches();
+                    addResult(coachesSection, `✓ getCoaches() - ${coaches.length} entrenadores encontrados`, 'success');
+                    passed++;
+                } catch (error) {
+                    addResult(coachesSection, `✗ Error: ${error.message}`, 'error');
+                    failed++;
+                }
+
+                // ==================== CLUB SETTINGS ====================
+                const settingsSection = createSection('⚙️ Club Settings API');
+
+                try {
+                    const settings = await api.getClubSettings();
+                    addResult(settingsSection, `✓ getClubSettings() - Club: ${settings.name}`, 'success');
+                    passed++;
+                } catch (error) {
+                    addResult(settingsSection, `✗ Error: ${error.message}`, 'error');
+                    failed++;
+                }
+
+                // ==================== TOURNAMENTS ====================
+                const tournamentsSection = createSection('🏆 Tournaments API');
+
+                try {
+                    const tournaments = await api.getTournaments();
+                    addResult(tournamentsSection, `✓ getTournaments() - ${tournaments.length} torneos encontrados`, 'success');
+                    passed++;
+
+                    if (tournaments.length > 0) {
+                        const tournament = await api.getTournamentById(tournaments[0].id);
+                        addResult(tournamentsSection, `✓ getTournamentById() - Torneo: ${tournament.name}`, 'success');
+                        passed++;
+
+                        try {
+                            const positions = await api.getPositionsByTournamentId(tournaments[0].id);
+                            addResult(tournamentsSection, `✓ getPositionsByTournamentId() - ${positions.length} posiciones`, 'success');
+                            passed++;
+                        } catch (error) {
+                            addResult(tournamentsSection, `ℹ getPositionsByTournamentId() - Sin posiciones aún`, 'info');
+                        }
+
+                        // ==================== MATCHES ====================
+                        const matchesSection = createSection('⚽ Matches API');
+
+                        try {
+                            const matches = await api.getMatchesByTournamentId(tournaments[0].id);
+                            addResult(matchesSection, `✓ getMatchesByTournamentId() - ${matches.length} partidos encontrados`, 'success');
+                            passed++;
+
+                            if (matches.length > 0) {
+                                const match = await api.getMatchById(matches[0].id);
+                                addResult(matchesSection, `✓ getMatchById() - Partido cargado correctamente`, 'success');
+                                passed++;
+                            }
+                        } catch (error) {
+                            addResult(matchesSection, `ℹ No hay partidos aún para este torneo`, 'info');
+                        }
+
+                        // ==================== GROUPS ====================
+                        const groupsSection = createSection('📊 Groups API');
+
+                        try {
+                            const groups = await api.getGroupsByTournamentId(tournaments[0].id);
+                            addResult(groupsSection, `✓ getGroupsByTournamentId() - ${groups.length} grupos encontrados`, 'success');
+                            passed++;
+                        } catch (error) {
+                            addResult(groupsSection, `ℹ No hay grupos aún para este torneo`, 'info');
+                        }
+                    }
+                } catch (error) {
+                    addResult(tournamentsSection, `✗ Error: ${error.message}`, 'error');
+                    failed++;
+                }
+
+                // ==================== ERROR HANDLING ====================
+                const errorSection = createSection('🛡️ Error Handling');
+
+                try {
+                    await api.getPlayerById('invalid-id-12345');
+                    addResult(errorSection, `✗ Error handling no funcionó - debería haber fallado`, 'error');
+                    failed++;
+                } catch (error) {
+                    addResult(errorSection, `✓ Error handling funciona correctamente - Error: ${error.message}`, 'success');
+                    passed++;
+                }
+
+            } finally {
+                loader.classList.remove('active');
+                runTestsButton.disabled = false;
+                summary.style.display = 'block';
+                document.getElementById('passedCount').textContent = passed;
+                document.getElementById('failedCount').textContent = failed;
+            }
+        }
+
+        runTestsButton.addEventListener('click', runTests);
+    </script>
+</body>
+</html>

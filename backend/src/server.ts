@@ -11,7 +11,14 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// CORS configuration for credentials (cookies)
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Frontend URL
+  credentials: true, // IMPORTANTE: Permitir cookies/credentials
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 app.use(express.json({ limit: '10mb' })); // Increase limit for base64 images
 app.use(cookieParser());
 
