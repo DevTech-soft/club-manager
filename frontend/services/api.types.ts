@@ -42,6 +42,7 @@ export type GetPlayerAttendancesResponse = Attendance[];
 
 // ==================== TEAMS ====================
 export type GetTeamsResponse = Team[];
+export type GetTeamByIdResponse = Team | undefined;
 export type CreateTeamRequest = Omit<Team, 'id' | 'coach'>;
 export type CreateTeamResponse = Team;
 export type UpdateTeamRequest = Team;

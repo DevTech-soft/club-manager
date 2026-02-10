@@ -5,34 +5,106 @@ import {
   subCategoryToPrisma,
   positionToPrisma,
 } from '../utils/mappers';
+import { NotFoundError } from '../errors/AppError';
 
 /**
  * Service layer for Players
  * Contains all business logic related to players
  */
 
+// Select optimizado para lista de jugadores (menos campos)
+const playerListSelect = {
+  id: true,
+  name: true,
+  document: true,
+  phone: true,
+  avatarUrl: true,
+  mainCategories: true,
+  subCategory: true,
+  position: true,
+  joinDate: true,
+  birthDate: true,
+  lastPaymentDate: true,
+  address: true,
+  statsHistory: {
+    take: 1, // Solo el último registro de stats
+    orderBy: { date: 'desc' as const },
+    select: {
+      id: true,
+      date: true,
+      stats: true,
+    },
+  },
+};
+
+// Select completo para detalle de jugador
+const playerDetailSelect = {
+  id: true,
+  name: true,
+  document: true,
+  address: true,
+  phone: true,
+  joinDate: true,
+  birthDate: true,
+  avatarUrl: true,
+  mainCategories: true,
+  subCategory: true,
+  position: true,
+  lastPaymentDate: true,
+  statsHistory: {
+    orderBy: { date: 'desc' as const },
+    select: {
+      id: true,
+      date: true,
+      stats: true,
+    },
+  },
+};
+
 /**
- * Get all players with their stats history
+ * Get all players with optimized select
  */
 export const getAllPlayers = async () => {
   const players = await prisma.player.findMany({
-    include: { statsHistory: { orderBy: { date: 'desc' } } },
+    select: playerListSelect,
     orderBy: { joinDate: 'desc' },
   });
   return players.map(mapPlayerForFrontend);
 };
 
 /**
- * Get a single player by ID
+ * Get players with pagination (cursor-based para mejor performance)
+ */
+export const getPlayersPaginated = async (cursor?: string, limit: number = 20) => {
+  const players = await prisma.player.findMany({
+    take: limit,
+    skip: cursor ? 1 : 0,
+    cursor: cursor ? { id: cursor } : undefined,
+    select: playerListSelect,
+    orderBy: { joinDate: 'desc' },
+  });
+
+  const lastPlayer = players[players.length - 1];
+  const nextCursor = lastPlayer?.id;
+
+  return {
+    players: players.map(mapPlayerForFrontend),
+    nextCursor,
+    hasMore: players.length === limit,
+  };
+};
+
+/**
+ * Get a single player by ID with full details
  */
 export const getPlayerById = async (id: string) => {
   const player = await prisma.player.findUnique({
     where: { id },
-    include: { statsHistory: { orderBy: { date: 'desc' } } },
+    select: playerDetailSelect,
   });
 
   if (!player) {
-    return null;
+    throw new NotFoundError('Player');
   }
 
   return mapPlayerForFrontend(player);
@@ -44,7 +116,7 @@ export const getPlayerById = async (id: string) => {
 export const getPlayerByDocument = async (document: string) => {
   const player = await prisma.player.findUnique({
     where: { document },
-    include: { statsHistory: { orderBy: { date: 'desc' } } },
+    select: playerDetailSelect,
   });
 
   if (!player) {
@@ -52,6 +124,82 @@ export const getPlayerByDocument = async (document: string) => {
   }
 
   return mapPlayerForFrontend(player);
+};
+
+/**
+ * Search players by name or document
+ */
+export const searchPlayers = async (query: string, limit: number = 10) => {
+  const players = await prisma.player.findMany({
+    where: {
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { document: { contains: query } },
+      ],
+    },
+    take: limit,
+    select: playerListSelect,
+    orderBy: { name: 'asc' },
+  });
+
+  return players.map(mapPlayerForFrontend);
+};
+
+/**
+ * Get players by category
+ */
+export const getPlayersByCategory = async (
+  mainCategory?: string,
+  subCategory?: string
+) => {
+  const where: any = {};
+
+  if (mainCategory) {
+    where.mainCategories = { has: mainCategory };
+  }
+
+  if (subCategory) {
+    const mappedSubCategory = subCategoryToPrisma[subCategory];
+    if (mappedSubCategory) {
+      where.subCategory = mappedSubCategory;
+    }
+  }
+
+  const players = await prisma.player.findMany({
+    where,
+    select: playerListSelect,
+    orderBy: { joinDate: 'desc' },
+  });
+
+  return players.map(mapPlayerForFrontend);
+};
+
+/**
+ * Get players with overdue payments
+ */
+export const getPlayersWithOverduePayments = async (days: number = 30) => {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+
+  const players = await prisma.player.findMany({
+    where: {
+      OR: [
+        { lastPaymentDate: { lt: cutoffDate } },
+        { lastPaymentDate: null },
+      ],
+    },
+    select: playerListSelect,
+    orderBy: { lastPaymentDate: 'asc' },
+  });
+
+  return players.map(mapPlayerForFrontend);
+};
+
+/**
+ * Count total players
+ */
+export const countPlayers = async () => {
+  return prisma.player.count();
 };
 
 /**
@@ -72,7 +220,7 @@ export const createPlayer = async (playerData: PlayerCreationData) => {
     data: {
       ...restPlayerData,
       birthDate: new Date(restPlayerData.birthDate),
-      mainCategories: restPlayerData.mainCategories as any, // Values match keys
+      mainCategories: restPlayerData.mainCategories as any,
       subCategory: mappedSubCategory,
       position: mappedPosition,
       statsHistory: {
@@ -82,7 +230,7 @@ export const createPlayer = async (playerData: PlayerCreationData) => {
         })),
       },
     },
-    include: { statsHistory: { orderBy: { date: 'desc' } } },
+    select: playerDetailSelect,
   });
 
   return mapPlayerForFrontend(newPlayer);
@@ -105,7 +253,7 @@ export const updatePlayer = async (id: string, playerData: Player) => {
 
   const dataToUpdate: any = {
     ...restPlayerData,
-    id: undefined, // Do not try to update id
+    id: undefined,
     birthDate: new Date(restPlayerData.birthDate),
     lastPaymentDate: restPlayerData.lastPaymentDate
       ? new Date(restPlayerData.lastPaymentDate)
@@ -131,7 +279,7 @@ export const updatePlayer = async (id: string, playerData: Player) => {
   const updatedPlayer = await prisma.player.update({
     where: { id },
     data: dataToUpdate,
-    include: { statsHistory: { orderBy: { date: 'desc' } } },
+    select: playerDetailSelect,
   });
 
   return mapPlayerForFrontend(updatedPlayer);
@@ -153,8 +301,18 @@ export const registerPayment = async (id: string) => {
   const updatedPlayer = await prisma.player.update({
     where: { id },
     data: { lastPaymentDate: new Date() },
-    include: { statsHistory: { orderBy: { date: 'desc' } } },
+    select: playerDetailSelect,
   });
 
   return mapPlayerForFrontend(updatedPlayer);
+};
+
+/**
+ * Bulk delete players
+ */
+export const bulkDeletePlayers = async (ids: string[]) => {
+  const result = await prisma.player.deleteMany({
+    where: { id: { in: ids } },
+  });
+  return { deleted: result.count };
 };

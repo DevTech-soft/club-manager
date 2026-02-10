@@ -6,7 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import { ToastProvider } from './context/ToastContext';
 import { ClubProvider } from './context/ClubContext';
-
+import { QueryProvider } from './providers/QueryProvider';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -16,14 +16,16 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <DataProvider>
-        <ClubProvider>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
-        </ClubProvider>
-      </DataProvider>
-    </AuthProvider>
+    <QueryProvider>
+      <AuthProvider>
+        <DataProvider>
+          <ClubProvider>
+            <ToastProvider>
+              <App />
+            </ToastProvider>
+          </ClubProvider>
+        </DataProvider>
+      </AuthProvider>
+    </QueryProvider>
   </React.StrictMode>
 );

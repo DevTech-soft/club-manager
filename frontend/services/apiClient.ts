@@ -157,7 +157,7 @@ class ApiClient {
     const response = await fetch(url, {
       method: 'GET',
       headers: this.mergeHeaders(config?.headers),
-      credentials: 'include', // Enviar cookies automáticamente
+      credentials: 'include', 
       signal: config?.signal,
     });
 
@@ -171,7 +171,7 @@ class ApiClient {
       method: 'POST',
       headers: this.mergeHeaders(config?.headers),
       body: data ? JSON.stringify(data) : undefined,
-      credentials: 'include', // Enviar cookies automáticamente
+      credentials: 'include', 
       signal: config?.signal,
     });
 
@@ -185,7 +185,7 @@ class ApiClient {
       method: 'PUT',
       headers: this.mergeHeaders(config?.headers),
       body: data ? JSON.stringify(data) : undefined,
-      credentials: 'include', // Enviar cookies automáticamente
+      credentials: 'include', 
       signal: config?.signal,
     });
 
@@ -199,7 +199,7 @@ class ApiClient {
       method: 'PATCH',
       headers: this.mergeHeaders(config?.headers),
       body: data ? JSON.stringify(data) : undefined,
-      credentials: 'include', // Enviar cookies automáticamente
+      credentials: 'include', 
       signal: config?.signal,
     });
 
@@ -212,7 +212,7 @@ class ApiClient {
     const response = await fetch(url, {
       method: 'DELETE',
       headers: this.mergeHeaders(config?.headers),
-      credentials: 'include', // Enviar cookies automáticamente
+      credentials: 'include', 
       signal: config?.signal,
     });
 

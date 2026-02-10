@@ -1,24 +1,76 @@
 import { prisma } from '../config/database';
 import type { Team } from '../types';
 import { mapTeamForFrontend, subCategoryToPrisma } from '../utils/mappers';
+import { NotFoundError } from '../errors/AppError';
 
 /**
  * Service layer for Teams
  * Contains all business logic related to teams
  */
 
+// Select optimizado para equipos
+const teamSelect = {
+  id: true,
+  name: true,
+  mainCategory: true,
+  subCategory: true,
+  tournament: true,
+  tournamentPosition: true,
+  coachId: true,
+  coach: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      avatarUrl: true,
+    },
+  },
+  players: {
+    select: {
+      id: true,
+      name: true,
+      avatarUrl: true,
+      position: true,
+    },
+  },
+  _count: {
+    select: {
+      players: true,
+    },
+  },
+};
+
 /**
  * Get all teams with their players
  */
 export const getAllTeams = async () => {
   const teams = await prisma.team.findMany({
-    include: {
-      players: {
-        select: { id: true },
-      },
-    },
+    select: teamSelect,
+    orderBy: { name: 'asc' },
   });
   return teams.map(mapTeamForFrontend);
+};
+
+/**
+ * Get teams with pagination
+ */
+export const getTeamsPaginated = async (cursor?: string, limit: number = 20) => {
+  const teams = await prisma.team.findMany({
+    take: limit,
+    skip: cursor ? 1 : 0,
+    cursor: cursor ? { id: cursor } : undefined,
+    select: teamSelect,
+    orderBy: { name: 'asc' },
+  });
+
+  const lastTeam = teams[teams.length - 1];
+  const nextCursor = lastTeam?.id;
+
+  return {
+    teams: teams.map(mapTeamForFrontend),
+    nextCursor,
+    hasMore: teams.length === limit,
+  };
 };
 
 /**
@@ -27,18 +79,11 @@ export const getAllTeams = async () => {
 export const getTeamById = async (id: string) => {
   const team = await prisma.team.findUnique({
     where: { id },
-    include: {
-      players: {
-        select: { id: true },
-      },
-      coach: {
-        select: { firstName: true, lastName: true },
-      },
-    },
+    select: teamSelect,
   });
 
   if (!team) {
-    return null;
+    throw new NotFoundError('Team');
   }
 
   return mapTeamForFrontend(team);
@@ -56,13 +101,62 @@ export const getPlayerTeams = async (playerId: string) => {
         },
       },
     },
-    include: {
-      players: {
-        select: { id: true },
-      },
-    },
+    select: teamSelect,
+    orderBy: { name: 'asc' },
   });
   return teams.map(mapTeamForFrontend);
+};
+
+/**
+ * Get teams by category
+ */
+export const getTeamsByCategory = async (
+  mainCategory?: string,
+  subCategory?: string
+) => {
+  const where: any = {};
+
+  if (mainCategory) {
+    where.mainCategory = mainCategory;
+  }
+
+  if (subCategory) {
+    const mappedSubCategory = subCategoryToPrisma[subCategory];
+    if (mappedSubCategory) {
+      where.subCategory = mappedSubCategory;
+    }
+  }
+
+  const teams = await prisma.team.findMany({
+    where,
+    select: teamSelect,
+    orderBy: { name: 'asc' },
+  });
+
+  return teams.map(mapTeamForFrontend);
+};
+
+/**
+ * Search teams by name
+ */
+export const searchTeams = async (query: string, limit: number = 10) => {
+  const teams = await prisma.team.findMany({
+    where: {
+      name: { contains: query, mode: 'insensitive' },
+    },
+    take: limit,
+    select: teamSelect,
+    orderBy: { name: 'asc' },
+  });
+
+  return teams.map(mapTeamForFrontend);
+};
+
+/**
+ * Count total teams
+ */
+export const countTeams = async () => {
+  return prisma.team.count();
 };
 
 /**
@@ -87,10 +181,7 @@ export const createTeam = async (teamData: Omit<Team, 'id' | 'coach'>) => {
       },
       coach: coachId ? { connect: { id: coachId } } : undefined,
     },
-    include: {
-      players: { select: { id: true } },
-      coach: { select: { firstName: true, lastName: true } },
-    },
+    select: teamSelect,
   });
 
   return mapTeamForFrontend(newTeam);
@@ -109,11 +200,12 @@ export const updateTeam = async (id: string, teamData: Team) => {
       name: restTeamData.name,
       tournament: restTeamData.tournament,
       tournamentPosition: restTeamData.tournamentPosition,
+      coach: restTeamData.coachId ? { connect: { id: restTeamData.coachId } } : { disconnect: true },
       players: {
         set: playerIds.map((pid) => ({ id: pid })),
       },
     },
-    include: { players: { select: { id: true } } },
+    select: teamSelect,
   });
 
   return mapTeamForFrontend(updatedTeam);
@@ -127,4 +219,48 @@ export const deleteTeam = async (id: string) => {
     where: { id },
   });
   return { success: true };
+};
+
+/**
+ * Get teams without a coach
+ */
+export const getTeamsWithoutCoach = async () => {
+  const teams = await prisma.team.findMany({
+    where: { coachId: null },
+    select: teamSelect,
+    orderBy: { name: 'asc' },
+  });
+  return teams.map(mapTeamForFrontend);
+};
+
+/**
+ * Add player to team
+ */
+export const addPlayerToTeam = async (teamId: string, playerId: string) => {
+  const team = await prisma.team.update({
+    where: { id: teamId },
+    data: {
+      players: {
+        connect: { id: playerId },
+      },
+    },
+    select: teamSelect,
+  });
+  return mapTeamForFrontend(team);
+};
+
+/**
+ * Remove player from team
+ */
+export const removePlayerFromTeam = async (teamId: string, playerId: string) => {
+  const team = await prisma.team.update({
+    where: { id: teamId },
+    data: {
+      players: {
+        disconnect: { id: playerId },
+      },
+    },
+    select: teamSelect,
+  });
+  return mapTeamForFrontend(team);
 };

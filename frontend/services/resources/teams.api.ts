@@ -2,6 +2,7 @@
 import { apiClient } from '../apiClient';
 import {
   GetTeamsResponse,
+  GetTeamByIdResponse,
   CreateTeamRequest,
   CreateTeamResponse,
   UpdateTeamRequest,
@@ -15,6 +16,15 @@ export const teamsApi = {
    */
   getAll: (): Promise<GetTeamsResponse> => {
     return apiClient.get<GetTeamsResponse>('/teams');
+  },
+
+  /**
+   * Get team by ID
+   * @param id - Team ID
+   * @returns Team data
+   */
+  getById: (id: string): Promise<GetTeamByIdResponse> => {
+    return apiClient.get<GetTeamByIdResponse>(`/teams/${id}`);
   },
 
   /**

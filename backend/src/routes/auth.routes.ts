@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import * as authController from '../controllers/auth.controller';
 import { authenticate } from '../middlewares/auth';
+import { validateBody } from '../middlewares/validate';
+import { authLimiter } from '../middlewares/rateLimiter';
+import { loginSchema } from '../validators/coach.validator';
 
 const router = Router();
 
@@ -9,8 +12,13 @@ const router = Router();
  * Base path: /api/auth
  */
 
-// POST /api/auth/login - Login (admin, superadmin, or coach)
-router.post('/login', authController.login);
+// POST /api/auth/login - Login (con rate limiting)
+router.post(
+  '/login',
+  authLimiter,
+  validateBody(loginSchema),
+  authController.login
+);
 
 // POST /api/auth/logout - Logout (clear cookies)
 router.post('/logout', authController.logout);

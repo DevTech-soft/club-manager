@@ -301,7 +301,20 @@ const TournamentDetails: React.FC = () => {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : 
+          tournament.quickTeamNames?.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tournament.quickTeamNames.map((name: string) => (
+                <div
+                  key={name + Math.random()}
+                  className="bg-gray-800 border border-gray-700 rounded-lg p-4 hover:shadow-xl transition-shadow"
+                >
+                  <h3 className="text-lg font-bold text-white mb-1">{name}</h3>
+                </div>
+              ))}
+            </div>
+          ):
+          (
             <p className="text-text-secondary">
               No hay equipos registrados aún.
             </p>
