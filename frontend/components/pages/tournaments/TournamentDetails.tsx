@@ -800,7 +800,7 @@ const TournamentDetails: React.FC = () => {
           <p>{dialogMessage}</p>
         </ModalDialog>
       )}
-      {loading && <TournamentLoader loading={loading} />}
+      {loading && <TournamentLoader/>}
     </div>
   );
 };
